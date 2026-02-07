@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#1a1408"/>
+      <stop offset="100%" stop-color="#050403"/>
+    </radialGradient>
+    <radialGradient id="glass" cx="40%" cy="35%" r="50%">
+      <stop offset="0%" stop-color="rgba(200,180,120,0.15)"/>
+      <stop offset="100%" stop-color="rgba(200,180,120,0.03)"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e8d8a0"/>
+      <stop offset="50%" stop-color="#c8a850"/>
+      <stop offset="100%" stop-color="#a88830"/>
+    </linearGradient>
+    <linearGradient id="handle" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8a6a30"/>
+      <stop offset="100%" stop-color="#5a4420"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" fill="url(#bg)"/>
+  <!-- Subtle border -->
+  <rect x="8" y="8" width="496" height="496" rx="74" fill="none" stroke="#c8b47a" stroke-width="3" opacity="0.25"/>
+  <!-- Magnifying glass handle -->
+  <line x1="310" y1="330" x2="420" y2="440" stroke="url(#handle)" stroke-width="32" stroke-linecap="round"/>
+  <line x1="310" y1="330" x2="420" y2="440" stroke="#a88830" stroke-width="26" stroke-linecap="round"/>
+  <!-- Magnifying glass ring -->
+  <circle cx="220" cy="220" r="120" fill="url(#glass)" stroke="url(#gold)" stroke-width="14"/>
+  <!-- Inner ring detail -->
+  <circle cx="220" cy="220" r="108" fill="none" stroke="#c8a850" stroke-width="2" opacity="0.4"/>
+  <!-- Skull inside magnifying glass -->
+  <!-- Cranium -->
+  <ellipse cx="220" cy="195" rx="48" ry="42" fill="none" stroke="#c8b47a" stroke-width="5" opacity="0.85"/>
+  <!-- Jaw -->
+  <path d="M188 220 Q192 255 220 255 Q248 255 252 220" fill="none" stroke="#c8b47a" stroke-width="4" opacity="0.75"/>
+  <!-- Left eye -->
+  <ellipse cx="203" cy="200" rx="12" ry="14" fill="#c8b47a" opacity="0.7"/>
+  <!-- Right eye -->
+  <ellipse cx="237" cy="200" rx="12" ry="14" fill="#c8b47a" opacity="0.7"/>
+  <!-- Nose -->
+  <path d="M216 218 L220 226 L224 218" fill="none" stroke="#c8b47a" stroke-width="3" opacity="0.6"/>
+  <!-- Teeth -->
+  <line x1="208" y1="242" x2="208" y2="250" stroke="#c8b47a" stroke-width="2.5" opacity="0.5"/>
+  <line x1="216" y1="243" x2="216" y2="253" stroke="#c8b47a" stroke-width="2.5" opacity="0.5"/>
+  <line x1="224" y1="243" x2="224" y2="253" stroke="#c8b47a" stroke-width="2.5" opacity="0.5"/>
+  <line x1="232" y1="242" x2="232" y2="250" stroke="#c8b47a" stroke-width="2.5" opacity="0.5"/>
+  <!-- "III" (three) roman numeral below glass -->
+  <text x="220" y="408" text-anchor="middle" font-family="Georgia, serif" font-size="48" font-weight="bold" fill="#c8b47a" opacity="0.6" letter-spacing="8">III</text>
+  <!-- Glow effect -->
+  <circle cx="220" cy="220" r="115" fill="none" stroke="#c8a850" stroke-width="1" opacity="0.15">
+    <animate attributeName="r" values="110;118;110" dur="3s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.15;0.3;0.15" dur="3s" repeatCount="indefinite"/>
+  </circle>
+</svg>

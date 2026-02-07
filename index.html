@@ -1,0 +1,2168 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    <title>Edward Bolt — De tre döda männen</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="icon" type="image/svg+xml" href="icon.svg">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html {
+            height: 100%;
+            height: 100dvh;
+            overflow: hidden;
+        }
+        body {
+            overflow: hidden; background: #000; font-family: 'Georgia', serif;
+            height: 100%;
+            height: 100dvh;
+            width: 100%;
+            position: fixed;
+            top: 0; left: 0;
+            overscroll-behavior: none;
+            -webkit-text-size-adjust: 100%;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        }
+        canvas { display: block; touch-action: none; }
+
+        #blocker {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.85);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 100; cursor: pointer;
+        }
+        #blocker .inner {
+            text-align: center; color: #c8b47a; max-width: 640px; padding: 40px;
+        }
+        #blocker h1 { font-size: 52px; letter-spacing: 6px; margin-bottom: 8px; color: #e8d8a0; text-shadow: 0 0 30px rgba(200,160,60,0.4); }
+        #blocker h2 { font-size: 22px; font-weight: normal; font-style: italic; margin-bottom: 30px; color: #a89660; }
+        #blocker .story { font-size: 15px; line-height: 1.8; color: #998a60; margin-bottom: 30px; text-align: left; }
+        #blocker .start { font-size: 18px; color: #e8d8a0; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{ opacity:0.6; } 50%{ opacity:1; } }
+        #blocker.hidden { display: none; }
+
+        #hud {
+            position: fixed; top: 0; left: 0; right: 0;
+            padding: 15px 25px;
+            display: flex; justify-content: space-between; align-items: flex-start;
+            pointer-events: none; z-index: 10;
+        }
+        #hud .left, #hud .right { pointer-events: auto; }
+        body.is-touch #hud .left { margin-left: 40px; }
+        #hud .name { color: #c8b47a; font-size: 16px; letter-spacing: 2px; text-shadow: 0 0 10px rgba(0,0,0,0.8); }
+        #hud .clue-count { color: #a89660; font-size: 13px; margin-top: 4px; }
+
+        #crosshair {
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px; height: 20px; z-index: 10; pointer-events: none;
+        }
+        #crosshair::before, #crosshair::after {
+            content: ''; position: absolute; background: rgba(200,180,120,0.5);
+        }
+        #crosshair::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
+        #crosshair::after { height: 2px; width: 100%; top: 50%; transform: translateY(-50%); }
+
+        #interaction-prompt {
+            position: fixed; bottom: 120px; left: 50%;
+            transform: translateX(-50%);
+            color: #e8d8a0; font-size: 15px;
+            background: rgba(0,0,0,0.7); padding: 10px 24px;
+            border: 1px solid rgba(200,180,120,0.3);
+            border-radius: 4px; z-index: 10;
+            pointer-events: none; display: none;
+            text-align: center;
+            cursor: pointer;
+        }
+        body.is-touch #interaction-prompt { pointer-events: auto; }
+
+        #clue-popup {
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10,8,4,0.95);
+            border: 1px solid #c8b47a;
+            padding: 40px; max-width: 500px; width: 90%;
+            z-index: 50; display: none; color: #c8b47a;
+            text-align: center;
+        }
+        #clue-popup h3 { font-size: 22px; margin-bottom: 15px; color: #e8d8a0; }
+        #clue-popup p { font-size: 14px; line-height: 1.8; color: #a89660; }
+        #clue-popup .close-hint { margin-top: 20px; font-size: 12px; color: #665a3a; }
+
+        #inventory {
+            position: fixed; bottom: 20px; left: 50%;
+            transform: translateX(-50%);
+            display: flex; gap: 8px; z-index: 10; pointer-events: none;
+        }
+        .inv-slot {
+            width: 56px; height: 56px;
+            border: 1px solid rgba(200,180,120,0.3);
+            background: rgba(0,0,0,0.5);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px; border-radius: 4px;
+            transition: all 0.3s;
+        }
+        .inv-slot.filled { border-color: rgba(200,180,120,0.7); background: rgba(20,16,8,0.8); }
+
+        #journal {
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10,8,4,0.97);
+            border: 1px solid #c8b47a;
+            padding: 40px; max-width: 600px; width: 90%;
+            max-height: 80vh; overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            z-index: 50; display: none; color: #c8b47a;
+        }
+        #journal h2 { text-align: center; margin-bottom: 20px; color: #e8d8a0; letter-spacing: 3px; }
+        #journal .entry { margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid rgba(200,180,120,0.15); }
+        #journal .entry h4 { color: #c8b47a; margin-bottom: 6px; }
+        #journal .entry p { color: #8a7a50; font-size: 13px; line-height: 1.7; }
+        #journal .close-hint { text-align: center; margin-top: 20px; font-size: 12px; color: #665a3a; }
+
+        #solve-panel {
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10,8,4,0.97);
+            border: 1px solid #c8b47a;
+            padding: 40px; max-width: 600px; width: 90%;
+            z-index: 60; display: none; color: #c8b47a; text-align: center;
+        }
+        #solve-panel h2 { margin-bottom: 20px; color: #e8d8a0; }
+        #solve-panel .suspects { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+        #solve-panel button {
+            background: rgba(200,180,120,0.1); border: 1px solid #c8b47a;
+            color: #e8d8a0; padding: 12px 20px; font-size: 15px; cursor: pointer;
+            font-family: Georgia, serif; transition: all 0.3s;
+        }
+        #solve-panel button:hover { background: rgba(200,180,120,0.25); }
+        #solve-panel .close-hint { margin-top: 15px; font-size: 12px; color: #665a3a; }
+
+        #ending {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.95);
+            display: none; align-items: center; justify-content: center;
+            z-index: 200; color: #c8b47a; text-align: center;
+            cursor: pointer;
+        }
+        #ending .inner { max-width: 600px; padding: 40px; }
+        #ending h2 { font-size: 36px; color: #e8d8a0; margin-bottom: 20px; }
+        #ending p { font-size: 15px; line-height: 1.9; color: #a89660; }
+
+        #minimap {
+            position: fixed; bottom: 20px; right: 20px;
+            width: 150px; height: 150px;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid rgba(200,180,120,0.3);
+            border-radius: 4px; z-index: 10; pointer-events: none;
+        }
+
+        #controls-help {
+            position: fixed; bottom: 20px; left: 20px;
+            color: #665a3a; font-size: 11px; line-height: 1.8;
+            z-index: 10; pointer-events: none;
+        }
+
+        #loading-screen {
+            position: fixed; inset: 0;
+            background: #050408;
+            display: flex; align-items: center; justify-content: center; flex-direction: column;
+            z-index: 500; transition: opacity 0.8s;
+        }
+        #loading-screen.fade-out { opacity: 0; }
+        #loading-screen h2 { color: #c8b47a; font-size: 28px; letter-spacing: 4px; margin-bottom: 30px; }
+        #loading-bar-outer {
+            width: 300px; height: 4px;
+            background: rgba(200,180,120,0.15);
+            border-radius: 2px; overflow: hidden;
+        }
+        #loading-bar-inner {
+            width: 0%; height: 100%;
+            background: #c8b47a;
+            transition: width 0.3s;
+        }
+        #loading-text { color: #665a3a; font-size: 12px; margin-top: 12px; }
+
+        /* ─── MOBILE TOUCH CONTROLS ─── */
+        .touch-controls { display: none !important; }
+        body.is-touch .touch-controls { display: flex !important; }
+        body.is-touch #controls-help { display: none !important; }
+
+        #joystick-zone {
+            position: fixed; bottom: 30px; left: 30px;
+            width: 130px; height: 130px; z-index: 70;
+            border-radius: 50%;
+            background: rgba(200,180,120,0.1);
+            border: 2px solid rgba(200,180,120,0.25);
+            touch-action: none;
+        }
+        #joystick-knob {
+            position: absolute;
+            width: 50px; height: 50px;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            background: rgba(200,180,120,0.35);
+            border: 2px solid rgba(200,180,120,0.5);
+            pointer-events: none;
+        }
+
+        .touch-btn {
+            position: fixed; z-index: 70;
+            width: 60px; height: 60px;
+            border-radius: 50%;
+            background: rgba(200,180,120,0.15);
+            border: 2px solid rgba(200,180,120,0.35);
+            color: #c8b47a; font-size: 22px;
+            display: flex; align-items: center; justify-content: center;
+            font-family: Georgia, serif;
+            touch-action: none;
+            user-select: none; -webkit-user-select: none;
+        }
+        .touch-btn:active { background: rgba(200,180,120,0.35); }
+        #btn-journal {
+            top: 12px; left: 15px;
+            width: auto; height: auto;
+            border-radius: 0; border: none;
+            background: none;
+            font-size: 30px;
+            padding: 4px;
+        }
+        #btn-journal:active { background: none; opacity: 0.6; }
+
+        /* ─── iOS ADD-TO-HOME-SCREEN BANNER ─── */
+        #ios-banner {
+            display: none;
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: rgba(20,16,8,0.97);
+            border-top: 1px solid #c8b47a;
+            color: #c8b47a; font-size: 14px;
+            padding: 14px 20px;
+            padding-bottom: max(14px, env(safe-area-inset-bottom));
+            z-index: 300;
+            text-align: center; line-height: 1.5;
+        }
+        #ios-banner .dismiss-ios {
+            display: inline-block; margin-left: 12px;
+            background: rgba(200,180,120,0.2); border: 1px solid #c8b47a;
+            color: #e8d8a0; padding: 4px 14px; border-radius: 3px;
+            font-family: Georgia, serif; font-size: 13px; cursor: pointer;
+        }
+        /* Rotate prompt for portrait on mobile */
+        #rotate-prompt {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.95);
+            z-index: 400;
+            color: #c8b47a; font-family: Georgia, serif;
+            flex-direction: column;
+            align-items: center; justify-content: center;
+            text-align: center; padding: 40px;
+        }
+        #rotate-prompt .icon { font-size: 60px; margin-bottom: 20px; }
+        #rotate-prompt p { font-size: 18px; line-height: 1.6; }
+        @media (orientation: portrait) {
+            body.is-touch #rotate-prompt { display: flex; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="loading-screen">
+    <h2>LADDAR BLACKWOOD MANOR</h2>
+    <div id="loading-bar-outer"><div id="loading-bar-inner"></div></div>
+    <div id="loading-text">Förbereder scenen...</div>
+</div>
+
+<div id="blocker">
+    <div class="inner">
+        <h1>DE TRE DÖDA MÄNNEN</h1>
+        <h2>Ett Edward Bolt-mysterium</h2>
+        <div class="story">
+            Tre män hittades döda i Blackwood Manor. Inga tecken på inbrott. Inga synliga sår.
+            Polisen står handfallen. Du är Edward Bolt — privatdetektiv. Huset håller hårt
+            på sina hemligheter, men varje rum viskar en ledtråd. Sök i varje vrå. Läs varje anteckning.
+            Sanningen finns någonstans inom dessa väggar.
+        </div>
+        <div class="start">[ Tryck för att gå in i Blackwood Manor ]<br><small style="font-size:12px;color:#665a3a;">Dra på skärmen för att se dig omkring</small></div>
+    </div>
+</div>
+
+<div id="hud">
+    <div class="left">
+        <div class="name">EDWARD BOLT</div>
+        <div class="clue-count">Ledtrådar: <span id="clue-num">0</span> / <span id="clue-total">8</span></div>
+    </div>
+    <div class="right">
+        <div class="name" id="room-name">Entréhall</div>
+    </div>
+</div>
+
+<div id="crosshair"></div>
+<div id="interaction-prompt"></div>
+<div id="clue-popup"><h3></h3><p></p><div class="close-hint">[ Tryck för att stänga ]</div></div>
+
+<div id="inventory"></div>
+
+<div id="journal">
+    <h2>📓 JOURNAL</h2>
+    <div id="journal-entries"></div>
+    <div class="close-hint">[ Tryck J eller ✕ för att stänga ]</div>
+</div>
+
+<div id="solve-panel">
+    <h2>🔍 ANKLAGA MÖRDAREN</h2>
+    <p style="margin-bottom:15px; color:#8a7a50; font-size:13px;">Du har samlat tillräckligt med bevis. Vem mördade de tre männen?</p>
+    <div class="suspects">
+        <button onclick="accuseSuspect('maid')">Margaret — Hembiträdet</button>
+        <button onclick="accuseSuspect('wife')">Victoria Blackwood — Hustrun</button>
+        <button onclick="accuseSuspect('doctor')">Dr. Harlan Crowe — Familjeläkaren</button>
+        <button onclick="accuseSuspect('lawyer')">Thomas Finch — Advokaten</button>
+    </div>
+    <div class="close-hint">[ Tryck Escape eller ✕ för att stänga ]</div>
+</div>
+
+<div id="ios-banner">
+    📲 För helskärm: tryck <strong>Dela</strong> ➜ <strong>Lägg till på hemskärmen</strong>
+    <span class="dismiss-ios" id="dismiss-ios">OK</span>
+</div>
+
+<div id="rotate-prompt">
+    <div class="icon">📱↔️</div>
+    <p>Vänd telefonen på tvären<br>för bästa upplevelse</p>
+</div>
+
+<div id="ending">
+    <div class="inner">
+        <h2 id="ending-title"></h2>
+        <p id="ending-text"></p>
+    </div>
+</div>
+
+<canvas id="minimap"></canvas>
+
+<!-- Mobile touch controls -->
+<div id="joystick-zone" class="touch-controls"><div id="joystick-knob"></div></div>
+<div id="btn-journal" class="touch-controls touch-btn">📓</div>
+
+<div id="controls-help">
+    Piltangenter — Gå &nbsp;|&nbsp; Håll vänster musknapp + mus — Se dig om<br>
+    E — Interagera &nbsp;|&nbsp; J — Journal &nbsp;|&nbsp; ESC — Meny
+</div>
+
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/"
+    }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// ─── GAME STATE ───
+const state = {
+    cluesFound: [],
+    totalClues: 8,
+    paused: false,
+    locked: true,
+    showingClue: false,
+    currentRoom: 'Entréhall'
+};
+
+// ─── CLUE DATA ───
+const CLUES = {
+    letter_desk: {
+        name: "Sönderrivet brev",
+        icon: "📜",
+        title: "Ett sönderrivet brev",
+        description: `Hittat på skrivbordet i arbetsrummet — ett brev, halvt uppbränt:\n\n"...Jag vet vad du gjorde förra hösten. De tre såg allt. Om du inte betalar berättar jag för konstapeln om leveransen vid hamnen. Du har till den 15:e."\n\nBrevet är adresserat till Victoria Blackwood.`,
+        room: "Arbetsrum"
+    },
+    poison_bottle: {
+        name: "Tom flaska",
+        icon: "🧪",
+        title: "Tom giftflaska",
+        description: `En liten glasflaska, gömd bakom böcker på kökshyllan. Etiketten lyder: "Oleanderextrakt — Dr. H. Crowe, Apotekare." Oleander är ett dödligt gift vid förtäring. Flaskan är helt tom.`,
+        room: "Kök"
+    },
+    wine_glasses: {
+        name: "Vinglas",
+        icon: "🍷",
+        title: "Tre vinglas",
+        description: `Tre vinglas på matbordet. Alla tre har svaga rester. Männen drack tillsammans innan de dog. Ett fjärde glas står på sidoskänken — orört, fortfarande fullt.`,
+        room: "Matsal"
+    },
+    doctors_bag: {
+        name: "Doktorns väska",
+        icon: "💼",
+        title: "Dr. Crowes läkarväska",
+        description: `En läkarväska i läder, lämnad i korridoren. Inuti: vanliga instrument, men också ett kvitto på "3 flaskor Oleanderextrakt" daterat två veckor sedan. Kvittot är undertecknat av Dr. Harlan Crowe.`,
+        room: "Korridor"
+    },
+    diary_page: {
+        name: "Dagbokssida",
+        icon: "📖",
+        title: "Victorias dagbokssida",
+        description: `En sida riven ur en dagbok, hittad under kudden i sovrummet:\n\n"12 okt — Harlan säger att det blir smärtfritt. Han försäkrar mig att ämnet inte kan spåras. Jag kan inte leva så här längre. De tre männen förstörde allt. De måste tystas innan de talar."`,
+        room: "Sovrum"
+    },
+    muddy_boots: {
+        name: "Leriga stövlar",
+        icon: "👢",
+        title: "Leriga stövlar",
+        description: `Ett par leriga stövlar vid bakdörren. Leran matchar trädgårdsgången. Någon kom in bakvägen nyligen — stövelstorleken är liten, troligen en kvinnas. Margaret, hembiträdet, hävdar att hon inte varit i trädgården på flera dagar.`,
+        room: "Kök"
+    },
+    newspaper: {
+        name: "Tidning",
+        icon: "📰",
+        title: "Gammalt tidningsurklipp",
+        description: `Ett tidningsurklipp fastnålat på väggen i arbetsrummet:\n\n"BLACKWOOD SHIPPING CO. UNDER UTREDNING — Tre hamnarbetare hävdar att de bevittnat olagliga lasttransporter. Rättegångsdatum satt till 3 november."\n\nDe tre döda männen var vittnena.`,
+        room: "Arbetsrum"
+    },
+    pocket_watch: {
+        name: "Fickur",
+        icon: "⌚",
+        title: "Stannat fickur",
+        description: `Ett fint fickur hittat på ett av offren. Det stannade klockan 20:47. Graverat på baksidan: "Till min älskade — V.B." Victoria Blackwood gav detta ur till en av de döda männen. De kände varandra personligen.`,
+        room: "Vardagsrum"
+    }
+};
+
+// ─── SCENE SETUP ───
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0e0c14);
+scene.fog = new THREE.Fog(0x0e0c14, 8, 30);
+
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 1.7, 8);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 5.0;
+document.body.appendChild(renderer.domElement);
+
+// ─── LIGHTING ───
+const ambientLight = new THREE.AmbientLight(0x4a4040, 8.4);
+scene.add(ambientLight);
+
+// Cool moonlight fill from above — gives depth and unease
+const hemiLight = new THREE.HemisphereLight(0x3040608, 0x1a0a04, 4.2);
+scene.add(hemiLight);
+
+// Directional moonlight through windows — dramatic shadows
+const moonlight = new THREE.DirectionalLight(0x2233557, 2.2);
+moonlight.position.set(-5, 8, 3);
+moonlight.castShadow = true;
+scene.add(moonlight);
+
+function addPointLight(x, y, z, color, intensity, distance) {
+    const light = new THREE.PointLight(color, intensity, distance);
+    light.position.set(x, y, z);
+    light.castShadow = true;
+    light.shadow.mapSize.set(512, 512);
+    scene.add(light);
+    return light;
+}
+
+// Room lights
+addPointLight(0, 2.8, 7, 0xffa54f, 1.4, 10);     // entrance
+addPointLight(-7, 2.8, 0, 0xffa040, 1.26, 10);   // kitchen
+addPointLight(7, 2.8, 0, 0xffb060, 1.26, 10);     // living room
+addPointLight(0, 2.8, -2, 0xffc070, 1.75, 12);    // dining room
+addPointLight(-7, 2.8, -10, 0xff9030, 1.05, 10);  // bedroom
+addPointLight(7, 2.8, -10, 0xffa54f, 1.26, 10);   // study
+addPointLight(0, 2.8, -6, 0xff8020, 0.7, 10);      // hallway
+
+// Flickering candle lights
+const candleLights = [];
+function addCandle(x, y, z) {
+    const l = addPointLight(x, y, z, 0xff6a20, 0.56, 5);
+    candleLights.push(l);
+    return l;
+}
+addCandle(-7, 1.5, 1); addCandle(7, 1.5, -1); addCandle(0, 1.5, -3);
+addCandle(-7, 1.5, -9); addCandle(7, 1.5, -11);
+
+// ─── MATERIALS ───
+const wallMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1a, roughness: 0.9, metalness: 0 });
+const wallMat2 = new THREE.MeshStandardMaterial({ color: 0x2a1a0a, roughness: 0.95, metalness: 0 });
+const floorMat = new THREE.MeshStandardMaterial({ color: 0x1a1008, roughness: 0.8, metalness: 0.05 });
+const ceilingMat = new THREE.MeshStandardMaterial({ color: 0x2a2018, roughness: 0.95, metalness: 0 });
+const furnitureMat = new THREE.MeshStandardMaterial({ color: 0x2a1808, roughness: 0.7, metalness: 0.05 });
+const furnitureMat2 = new THREE.MeshStandardMaterial({ color: 0x3a2010, roughness: 0.75, metalness: 0.05 });
+const rugMat = new THREE.MeshStandardMaterial({ color: 0x4a1a1a, roughness: 1, metalness: 0 });
+const bedMat = new THREE.MeshStandardMaterial({ color: 0x1a2a3a, roughness: 0.9, metalness: 0 });
+const metalMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.3, metalness: 0.8 });
+const glassMat = new THREE.MeshStandardMaterial({ color: 0x334455, roughness: 0.1, metalness: 0, transparent: true, opacity: 0.3 });
+const clueMat = new THREE.MeshStandardMaterial({ color: 0xffcc44, roughness: 0.5, metalness: 0.3, emissive: 0xaa8800, emissiveIntensity: 0.5 });
+const bodyMat = new THREE.MeshStandardMaterial({ color: 0x333344, roughness: 0.9, metalness: 0 });
+const skinMat = new THREE.MeshStandardMaterial({ color: 0x998877, roughness: 0.9, metalness: 0 });
+
+// ─── PROCEDURAL WALL TEXTURES ───
+function createPanelWallCanvas(seed) {
+    const W = 1024, H = 512;
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const g = c.getContext('2d');
+    let s = seed;
+    const R = () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+
+    // Warm plaster base — rich Victorian cream
+    g.fillStyle = '#6b5540';
+    g.fillRect(0, 0, W, H);
+    // Fine grain noise
+    for (let i = 0; i < 8000; i++) {
+        const v = 85 + (R() * 30) | 0;
+        g.fillStyle = `rgba(${v},${v - 8},${v - 16},0.15)`;
+        g.fillRect(R() * W, R() * H, 1 + R() * 3, 1 + R() * 2);
+    }
+
+    // ── Upper 62%: wallpaper with damask motifs ──
+    const wpH = H * 0.62;
+    // Tinted wallpaper overlay
+    g.fillStyle = 'rgba(90,68,50,0.15)';
+    g.fillRect(0, 0, W, wpH);
+    const cols = 8, rows = 3, mw = W / cols, mh = wpH / rows;
+    g.save();
+    for (let r = 0; r < rows; r++) {
+        for (let ci = -1; ci <= cols; ci++) {
+            const off = (r % 2) ? mw * 0.5 : 0;
+            const mx = ci * mw + mw / 2 + off, my = r * mh + mh / 2;
+            // Ogee diamond frame
+            g.globalAlpha = 0.22; g.fillStyle = '#8a6848';
+            g.beginPath();
+            g.moveTo(mx, my - mh * 0.42);
+            g.quadraticCurveTo(mx + mw * 0.38, my - mh * 0.15, mx + mw * 0.28, my);
+            g.quadraticCurveTo(mx + mw * 0.38, my + mh * 0.15, mx, my + mh * 0.42);
+            g.quadraticCurveTo(mx - mw * 0.38, my + mh * 0.15, mx - mw * 0.28, my);
+            g.quadraticCurveTo(mx - mw * 0.38, my - mh * 0.15, mx, my - mh * 0.42);
+            g.fill();
+            // Inner diamond highlight
+            g.globalAlpha = 0.1; g.fillStyle = '#a08060';
+            g.beginPath();
+            g.moveTo(mx, my - mh * 0.32);
+            g.quadraticCurveTo(mx + mw * 0.28, my - mh * 0.1, mx + mw * 0.2, my);
+            g.quadraticCurveTo(mx + mw * 0.28, my + mh * 0.1, mx, my + mh * 0.32);
+            g.quadraticCurveTo(mx - mw * 0.28, my + mh * 0.1, mx - mw * 0.2, my);
+            g.quadraticCurveTo(mx - mw * 0.28, my - mh * 0.1, mx, my - mh * 0.32);
+            g.fill();
+            // Rosette center
+            g.globalAlpha = 0.25; g.fillStyle = '#7a5838';
+            g.beginPath(); g.arc(mx, my, mh * 0.1, 0, Math.PI * 2); g.fill();
+            g.globalAlpha = 0.15; g.fillStyle = '#a08060';
+            g.beginPath(); g.arc(mx, my, mh * 0.05, 0, Math.PI * 2); g.fill();
+            // Leaf sprays
+            g.globalAlpha = 0.18; g.fillStyle = '#7a5838';
+            for (let a = 0; a < 8; a++) {
+                const ang = a * Math.PI / 4, d = mh * 0.2;
+                g.beginPath();
+                g.ellipse(mx + Math.cos(ang) * d, my + Math.sin(ang) * d, mh * 0.06, mh * 0.025, ang, 0, Math.PI * 2);
+                g.fill();
+            }
+            // Petal ring
+            g.globalAlpha = 0.12; g.strokeStyle = '#906840'; g.lineWidth = 1.2;
+            for (let a = 0; a < 6; a++) {
+                const ang = a * Math.PI / 3 + 0.26, d1 = mh * 0.12, d2 = mh * 0.18;
+                g.beginPath();
+                g.moveTo(mx + Math.cos(ang) * d1, my + Math.sin(ang) * d1);
+                g.quadraticCurveTo(mx + Math.cos(ang + 0.3) * d2 * 1.4, my + Math.sin(ang + 0.3) * d2 * 1.4,
+                    mx + Math.cos(ang + 0.5) * d1, my + Math.sin(ang + 0.5) * d1);
+                g.stroke();
+            }
+            // Connecting tendrils between motifs
+            g.globalAlpha = 0.1; g.strokeStyle = '#8a6848'; g.lineWidth = 1.5;
+            g.beginPath();
+            g.moveTo(mx, my - mh * 0.42);
+            g.quadraticCurveTo(mx + mw * 0.15, my - mh * 0.55, mx + mw * 0.5, my - mh * 0.42);
+            g.stroke();
+        }
+    }
+    g.restore();
+
+    // ── Chair rail ──
+    const ry = wpH;
+    g.fillStyle = '#5a3e24'; g.fillRect(0, ry - 2, W, 16);
+    g.fillStyle = '#7a5a38'; g.fillRect(0, ry, W, 3);
+    g.fillStyle = '#6a4a2c'; g.fillRect(0, ry + 6, W, 4);
+    g.fillStyle = '#4a3018'; g.fillRect(0, ry + 12, W, 2);
+
+    // ── Wainscoting panels ──
+    const pT = ry + 17, pB = H - 18, np = 8, gap = 10;
+    const pw = (W - (np + 1) * gap) / np;
+    g.fillStyle = '#4a3820'; g.fillRect(0, pT - 2, W, H - pT + 2);
+    for (let i = 0; i < np; i++) {
+        const px = gap + i * (pw + gap), ph = pB - pT;
+        // Outer frame
+        g.fillStyle = '#5a4428'; g.fillRect(px, pT, pw, ph);
+        // Recess shadow
+        g.fillStyle = '#3a2814'; g.fillRect(px + 5, pT + 5, pw - 10, ph - 10);
+        // Inner raised panel
+        g.fillStyle = '#5e4830'; g.fillRect(px + 8, pT + 8, pw - 16, ph - 16);
+        // Panel highlight (top-left light)
+        g.fillStyle = 'rgba(140,110,75,0.15)'; g.fillRect(px + 8, pT + 8, pw - 16, 2);
+        g.fillStyle = 'rgba(140,110,75,0.1)'; g.fillRect(px + 8, pT + 8, 2, ph - 16);
+        // Panel shadow (bottom-right)
+        g.fillStyle = 'rgba(30,18,8,0.2)'; g.fillRect(px + 8, pT + ph - 18, pw - 16, 2);
+        g.fillStyle = 'rgba(30,18,8,0.15)'; g.fillRect(px + pw - 10, pT + 8, 2, ph - 16);
+        // Wood grain
+        g.strokeStyle = 'rgba(80,58,32,0.25)'; g.lineWidth = 0.7;
+        for (let j = 0; j < 6; j++) {
+            const gy = pT + 12 + R() * (ph - 24);
+            g.beginPath(); g.moveTo(px + 10, gy);
+            g.bezierCurveTo(px + pw * 0.3, gy + R() * 4 - 2, px + pw * 0.7, gy + R() * 4 - 2, px + pw - 10, gy + R() * 3 - 1);
+            g.stroke();
+        }
+    }
+    // Baseboard
+    g.fillStyle = '#6a4c30'; g.fillRect(0, H - 20, W, 4);
+    g.fillStyle = '#3a2818'; g.fillRect(0, H - 16, W, 16);
+    g.fillStyle = '#4a3420'; g.fillRect(0, H - 16, W, 2);
+
+    // ── Aging effects ──
+    g.save();
+    // Water stains from ceiling
+    for (let i = 0; i < 3; i++) {
+        const sx = R() * W, sr = 40 + R() * 70;
+        const gr = g.createRadialGradient(sx, 0, 0, sx, sr * 2, sr);
+        gr.addColorStop(0, 'rgba(50,35,20,0.06)'); gr.addColorStop(1, 'transparent');
+        g.fillStyle = gr; g.fillRect(sx - sr, 0, sr * 2, sr * 3);
+    }
+    // Soot near ceiling
+    const soot = g.createLinearGradient(0, 0, 0, 50);
+    soot.addColorStop(0, 'rgba(30,20,10,0.1)'); soot.addColorStop(1, 'transparent');
+    g.fillStyle = soot; g.fillRect(0, 0, W, 50);
+    // Dirt near floor
+    const dirt = g.createLinearGradient(0, H - 40, 0, H);
+    dirt.addColorStop(0, 'transparent'); dirt.addColorStop(1, 'rgba(40,25,12,0.08)');
+    g.fillStyle = dirt; g.fillRect(0, H - 40, W, 40);
+    g.restore();
+    // Hairline cracks
+    g.strokeStyle = 'rgba(50,30,15,0.15)'; g.lineWidth = 0.7;
+    for (let cr = 0; cr < 3; cr++) {
+        let cx = R() * W, cy = R() * wpH * 0.4;
+        g.beginPath(); g.moveTo(cx, cy);
+        for (let seg = 0; seg < 3 + (R() * 5 | 0); seg++) {
+            cx += R() * 14 - 7; cy += R() * 10 + 2; g.lineTo(cx, cy);
+        }
+        g.stroke();
+    }
+    return c;
+}
+
+function createPanelBumpCanvas() {
+    const W = 1024, H = 512;
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const g = c.getContext('2d');
+    let s = 99;
+    const R = () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+    g.fillStyle = '#808080'; g.fillRect(0, 0, W, H);
+    // Damask area slight bump
+    const wpH = H * 0.62;
+    const cols = 8, rows = 3, mw = W / cols, mh = wpH / rows;
+    for (let r = 0; r < rows; r++) {
+        for (let ci = -1; ci <= cols; ci++) {
+            const off = (r % 2) ? mw * 0.5 : 0;
+            const mx = ci * mw + mw / 2 + off, my = r * mh + mh / 2;
+            g.fillStyle = '#989898'; g.beginPath();
+            g.moveTo(mx, my - mh * 0.42);
+            g.quadraticCurveTo(mx + mw * 0.38, my - mh * 0.15, mx + mw * 0.28, my);
+            g.quadraticCurveTo(mx + mw * 0.38, my + mh * 0.15, mx, my + mh * 0.42);
+            g.quadraticCurveTo(mx - mw * 0.38, my + mh * 0.15, mx - mw * 0.28, my);
+            g.quadraticCurveTo(mx - mw * 0.38, my - mh * 0.15, mx, my - mh * 0.42);
+            g.fill();
+        }
+    }
+    // Chair rail
+    g.fillStyle = '#d0d0d0'; g.fillRect(0, wpH - 2, W, 16);
+    // Panels
+    const pT = wpH + 17, pB = H - 18, np = 8, gap = 10;
+    const pw = (W - (np + 1) * gap) / np;
+    for (let i = 0; i < np; i++) {
+        const px = gap + i * (pw + gap), ph = pB - pT;
+        g.fillStyle = '#585858'; g.fillRect(px + 5, pT + 5, pw - 10, ph - 10);
+        g.fillStyle = '#b0b0b0'; g.fillRect(px + 8, pT + 8, pw - 16, ph - 16);
+    }
+    g.fillStyle = '#c0c0c0'; g.fillRect(0, H - 20, W, 4);
+    g.fillStyle = '#555555'; g.fillRect(0, H - 16, W, 16);
+    // Noise
+    for (let i = 0; i < 4000; i++) {
+        const v = 120 + ((R() * 20) | 0) - 10;
+        g.fillStyle = `rgb(${v},${v},${v})`;
+        g.fillRect(R() * W, R() * H, 1 + R() * 2, 1 + R() * 2);
+    }
+    return c;
+}
+
+function makeWallMat(seed) {
+    const tex = new THREE.CanvasTexture(createPanelWallCanvas(seed));
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return new THREE.MeshStandardMaterial({
+        map: tex, bumpMap: panelBumpTex, bumpScale: 0.04, roughness: 0.85, metalness: 0
+    });
+}
+
+const panelBumpTex = new THREE.CanvasTexture(createPanelBumpCanvas());
+const northWallMat = makeWallMat(42);
+const southWallMat = makeWallMat(73);
+const westWallMat  = makeWallMat(137);
+const eastWallMat  = makeWallMat(211);
+const intWallMat   = makeWallMat(301);
+
+// ─── COLLISION BOXES ───
+const colliders = [];
+function addWall(x, y, z, w, h, d, mat) {
+    const geo = new THREE.BoxGeometry(w, h, d);
+    const mesh = new THREE.Mesh(geo, mat || wallMat);
+    mesh.position.set(x, y, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+    colliders.push(new THREE.Box3().setFromObject(mesh));
+    return mesh;
+}
+
+function addFloor(x, y, z, w, d, mat) {
+    const geo = new THREE.BoxGeometry(w, 0.1, d);
+    const mesh = new THREE.Mesh(geo, mat || floorMat);
+    mesh.position.set(x, y, z);
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+    return mesh;
+}
+
+function addFurniture(x, y, z, w, h, d, mat) {
+    const geo = new THREE.BoxGeometry(w, h, d);
+    const mesh = new THREE.Mesh(geo, mat || furnitureMat);
+    mesh.position.set(x, y, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+    colliders.push(new THREE.Box3().setFromObject(mesh));
+    return mesh;
+}
+
+// ─── BUILD HOUSE ───
+const WALL_H = 3.2;
+const WALL_T = 0.3;
+const FLOOR_Y = -0.05;
+
+// Floors
+addFloor(0, FLOOR_Y, 0, 24, 24, floorMat);
+
+// Ceiling
+const ceilGeo = new THREE.BoxGeometry(24, 0.15, 24);
+const ceilMesh = new THREE.Mesh(ceilGeo, ceilingMat);
+ceilMesh.position.set(0, WALL_H, 0);
+ceilMesh.receiveShadow = true;
+scene.add(ceilMesh);
+
+// Outer walls
+addWall(0, WALL_H/2, 12, 24, WALL_H, WALL_T, southWallMat);    // front (south)
+addWall(0, WALL_H/2, -12, 24, WALL_H, WALL_T, northWallMat);   // back (north)
+addWall(-12, WALL_H/2, 0, WALL_T, WALL_H, 24, westWallMat);    // left (west)
+addWall(12, WALL_H/2, 0, WALL_T, WALL_H, 24, eastWallMat);     // right (east)
+
+// ── Interior walls ──
+
+// Horizontal wall dividing front from back (with doorways)
+// Left section — split with doorway at x=-8 (kitchen → bedroom)
+addWall(-10.5, WALL_H/2, -4, 3, WALL_H, WALL_T, intWallMat);  // x=-12 to x=-9
+addWall(-6, WALL_H/2, -4, 2, WALL_H, WALL_T, intWallMat);     // x=-7 to x=-5
+// Middle section
+addWall(0, WALL_H/2, -4, 4, WALL_H, WALL_T, intWallMat);      // x=-2 to x=2
+// Right section — split with doorway at x=8 (living → study)
+addWall(6, WALL_H/2, -4, 2, WALL_H, WALL_T, intWallMat);      // x=5 to x=7
+addWall(10.5, WALL_H/2, -4, 3, WALL_H, WALL_T, intWallMat);   // x=9 to x=12
+
+// Vertical wall left (kitchen | dining)
+addWall(-4, WALL_H/2, 2, WALL_T, WALL_H, 7, intWallMat);      // upper: z=-1.5 to z=5.5
+// lower — split with doorway (hallway → bedroom)
+addWall(-4, WALL_H/2, -3.75, WALL_T, WALL_H, 1.5, intWallMat); // z=-4.5 to z=-3
+addWall(-4, WALL_H/2, -9.75, WALL_T, WALL_H, 4.5, intWallMat); // z=-12 to z=-7.5
+
+// Vertical wall right (living | study)
+addWall(4, WALL_H/2, 2, WALL_T, WALL_H, 7, intWallMat);       // upper: z=-1.5 to z=5.5
+// lower — split with doorway (hallway → study)
+addWall(4, WALL_H/2, -3.75, WALL_T, WALL_H, 1.5, intWallMat);  // z=-4.5 to z=-3
+addWall(4, WALL_H/2, -9.75, WALL_T, WALL_H, 4.5, intWallMat);  // z=-12 to z=-7.5
+
+// Back horizontal wall (bedroom / study divider)
+addWall(0, WALL_H/2, -8, 4, WALL_H, WALL_T, intWallMat);
+
+// ── Rugs ──
+const rugGeo = new THREE.BoxGeometry(4, 0.02, 3);
+const rug1 = new THREE.Mesh(rugGeo, rugMat);
+rug1.position.set(0, 0.01, 6); scene.add(rug1);
+const rug2 = new THREE.Mesh(new THREE.BoxGeometry(6, 0.02, 5), rugMat);
+rug2.position.set(0, 0.01, -1.5); scene.add(rug2);
+
+// ─── 3D MODEL LOADING SYSTEM ───
+const gltfLoader = new GLTFLoader();
+const loadingBar = document.getElementById('loading-bar-inner');
+const loadingText = document.getElementById('loading-text');
+const loadingScreen = document.getElementById('loading-screen');
+
+// Model URLs from poly.pizza (CC0/CC-BY licensed)
+const MODEL_URLS = {
+    table:       'models/table.glb',
+    chair:       'models/chair.glb',
+    sofa:        'models/sofa.glb',
+    bed:         'models/bed.glb',
+    desk:        'models/desk.glb',
+    bookshelf:   'models/bookshelf.glb',
+    candle:      'models/candle.glb',
+    wineGlass:   'models/wineGlass.glb',
+    wardrobe:    'models/wardrobe.glb',
+    cabinet:     'models/cabinet.glb',
+    drawer:      'models/drawer.glb',
+    armchair:    'models/armchair.glb',
+    potionBottle:'models/potionBottle.glb',
+    chandelier:  'models/chandelier.glb',
+    wineBottle:  'models/wineBottle.glb',
+};
+
+// Cache loaded models
+const modelCache = {};
+let modelsLoaded = 0;
+const totalModels = Object.keys(MODEL_URLS).length;
+
+function updateLoadingProgress(name) {
+    modelsLoaded++;
+    const pct = Math.round((modelsLoaded / totalModels) * 100);
+    loadingBar.style.width = pct + '%';
+    loadingText.textContent = `Laddar ${name}... (${modelsLoaded}/${totalModels})`;
+}
+
+function loadModel(key) {
+    return new Promise((resolve) => {
+        gltfLoader.load(MODEL_URLS[key], (gltf) => {
+            modelCache[key] = gltf.scene;
+            updateLoadingProgress(key);
+            resolve(gltf.scene);
+        }, undefined, (err) => {
+            console.warn(`Failed to load model: ${key}`, err);
+            modelCache[key] = null;
+            updateLoadingProgress(key);
+            resolve(null);
+        });
+    });
+}
+
+// Place a loaded model into the scene — with fallback box if model failed
+function placeModel(key, x, y, z, scale, rotY, tint, fallback) {
+    const template = modelCache[key];
+    if (!template) {
+        // Create visible fallback box furniture
+        if (fallback) {
+            const geo = new THREE.BoxGeometry(fallback[0], fallback[1], fallback[2]);
+            const mat = (furnitureMat).clone();
+            mat.color.set(fallback[3] || 0x2a1808);
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(x + (fallback[0]/2 || 0) * 0, y + fallback[1]/2, z);
+            mesh.position.set(x, y + fallback[1]/2, z);
+            if (rotY) mesh.rotation.y = rotY;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            scene.add(mesh);
+            return mesh;
+        }
+        return null;
+    }
+    const model = template.clone();
+    model.position.set(x, y, z);
+    if (typeof scale === 'number') model.scale.setScalar(scale);
+    else model.scale.set(scale[0], scale[1], scale[2]);
+    if (rotY) model.rotation.y = rotY;
+    // Tint all meshes darker for manor mood
+    if (tint) {
+        model.traverse((child) => {
+            if (child.isMesh && child.material) {
+                child.material = child.material.clone();
+                child.material.color.multiplyScalar(tint);
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+    } else {
+        model.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+    }
+    scene.add(model);
+    return model;
+}
+
+// Invisible collider box (keeps collision without visible box)
+function addCollider(x, y, z, w, h, d) {
+    const box = new THREE.Box3(
+        new THREE.Vector3(x - w/2, y - h/2, z - d/2),
+        new THREE.Vector3(x + w/2, y + h/2, z + d/2)
+    );
+    colliders.push(box);
+}
+
+// ─── LOAD ALL MODELS THEN PLACE FURNITURE ───
+async function initModels() {
+    // Load all models in parallel
+    await Promise.all(Object.keys(MODEL_URLS).map(key => loadModel(key)));
+
+    loadingText.textContent = 'Placerar möbler...';
+
+    // ─── DINING ROOM (center) ───
+    placeModel('table', 0, 0, -1.5, 1.2, 0, 0.6);
+    addCollider(0, 0.45, -1.5, 2.5, 0.9, 1.5);
+    // Chairs around table
+    for (let i = -1; i <= 1; i++) {
+        placeModel('chair', i * 1.5, 0, 0.2, 0.9, Math.PI, 0.7);
+        addCollider(i * 1.5, 0.5, 0.2, 0.5, 1, 0.5);
+        placeModel('chair', i * 1.5, 0, -3.2, 0.9, 0, 0.7);
+        addCollider(i * 1.5, 0.5, -3.2, 0.5, 1, 0.5);
+    }
+    // Wine glasses on table (also serve as clue objects)
+    const wineGlassModels = [
+        placeModel('wineGlass', -0.5, 0.9, -1.2, 1.5, 0, 0.8),
+        placeModel('wineGlass', 0.5, 0.9, -1.8, 1.5, 0.5, 0.8),
+        placeModel('wineGlass', 0, 0.9, -1, 1.5, -0.3, 0.8)
+    ];
+    wineGlassModels.forEach(m => {
+        if (m) {
+            m.userData = { type: 'clue', id: 'wine_glasses', static: true, baseY: m.position.y };
+            m.traverse(child => {
+                if (child.isMesh) {
+                    child.userData = { type: 'clue', id: 'wine_glasses' };
+                    interactables.push(child);
+                }
+            });
+            clueObjects.push(m);
+        }
+    });
+    // Wine bottle
+    placeModel('wineBottle', -0.8, 0.9, -1.6, 1.0, 0, 0.8);
+    // Chandelier above
+    placeModel('chandelier', 0, 2.6, -1.5, 0.8, 0, 0.7);
+
+    // ─── KITCHEN (left front) ───
+    // Counter/cabinet
+    placeModel('cabinet', -9.5, 0, 2, 1.2, 0, 0, 0.6);
+    addCollider(-9.5, 0.5, 2, 2.0, 1, 0.7);
+    // Shelf
+    placeModel('bookshelf', -11, 0, 5, 0.7, Math.PI, 0.5);
+    addCollider(-11, 1.1, 5, 1.0, 2.2, 0.4);
+    // Kitchen table
+    placeModel('table', -7, 0, 5, 0.8, Math.PI/4, 0.6);
+    addCollider(-7, 0.4, 5, 1.6, 0.8, 1.0);
+    // Potion bottle on counter
+    placeModel('potionBottle', -10, 1.0, 2, 1.5, 0, 0.8);
+
+    // ─── LIVING ROOM (right front) ───
+    placeModel('sofa', 9, 0, 4, 1.0, Math.PI/2, 0.6);
+    addCollider(9, 0.4, 4, 1.0, 0.8, 2.2);
+    // Coffee table
+    placeModel('table', 9, 0, 1.5, 0.6, 0, 0.5);
+    addCollider(9, 0.3, 1.5, 1.3, 0.6, 0.8);
+    // Armchair
+    placeModel('armchair', 6, 0, 6, 1.0, -Math.PI/4, 0.6);
+    addCollider(6, 0.4, 6, 0.8, 0.8, 0.8);
+    // Bookshelf
+    placeModel('bookshelf', 11.3, 0, 0, 1.0, -Math.PI/2, 0.5);
+    addCollider(11.3, 1.1, 0, 0.5, 2.2, 1.3);
+    // Candle on coffee table
+    placeModel('candle', 9.3, 0.46, 1.5, 1.2, 0, 0.8);
+
+    // ─── STUDY (right back) ───
+    placeModel('desk', 8, 0, -10, 1.0, Math.PI, 0.6);
+    addCollider(8, 0.45, -10, 1.8, 0.9, 1.0);
+    placeModel('chair', 8, 0, -8.5, 0.9, Math.PI, 0.7);
+    addCollider(8, 0.5, -8.5, 0.6, 1, 0.6);
+    placeModel('bookshelf', 11.3, 0, -9, 1.2, -Math.PI/2, 0.5);
+    addCollider(11.3, 1.3, -9, 0.5, 2.6, 1.5);
+    // Small side table
+    placeModel('drawer', 5.5, 0, -10.5, 0.8, 0, 0.6);
+    addCollider(5.5, 0.35, -10.5, 1, 0.7, 1);
+    // Candle on desk
+    placeModel('candle', 7.5, 0.79, -10.2, 1.0, 0, 0.8);
+
+    // ─── BEDROOM (left back) ───
+    placeModel('bed', -8, 0, -9.5, 1.2, Math.PI/2, 0.6);
+    addCollider(-8, 0.5, -9.5, 2.9, 1, 2.2);
+    // Nightstand
+    placeModel('drawer', -5.8, 0, -10.5, 0.7, 0, 0.6);
+    addCollider(-5.8, 0.35, -10.5, 0.8, 0.7, 0.8);
+    // Wardrobe
+    placeModel('wardrobe', -11, 0, -8, 0.9, Math.PI/2, 0.5);
+    addCollider(-11, 1.4, -8, 1.5, 2.8, 2);
+    // Candle on nightstand
+    placeModel('candle', -5.8, 0.40, -10.5, 1.0, 0, 0.8);
+
+    // ─── HALLWAY (center area) ───
+    placeModel('table', 0, 0, -6, 0.6, 0, 0.5);
+    addCollider(0, 0.4, -6, 1.3, 0.8, 0.8);
+    // Candle on hall table
+    placeModel('candle', 0.3, 0.46, -6, 1.0, 0, 0.8);
+
+    // Chandeliers in other rooms
+    placeModel('chandelier', -7, 2.6, 3, 0.6, 0, 0.7);
+    placeModel('chandelier', 7, 2.6, 3, 0.6, 0, 0.7);
+    placeModel('chandelier', 0, 2.6, 7, 0.6, 0, 0.7);
+
+    // ─── DONE LOADING ───
+    loadingText.textContent = 'Välkommen till Blackwood Manor...';
+    loadingBar.style.width = '100%';
+    setTimeout(() => {
+        loadingScreen.classList.add('fade-out');
+        setTimeout(() => { loadingScreen.style.display = 'none'; }, 800);
+    }, 500);
+}
+
+// Start loading
+initModels();
+
+// ─── DEAD BODIES (3 in dining room) ───
+function createBody(x, z, rotation) {
+    const group = new THREE.Group();
+    // Torso
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.9), bodyMat);
+    torso.position.y = 0.1;
+    group.add(torso);
+    // Head
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), skinMat);
+    head.position.set(0, 0.15, -0.55);
+    group.add(head);
+    // Legs
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.15, 0.7), bodyMat);
+    leg.position.set(0.15, 0.08, 0.6);
+    group.add(leg);
+    const leg2 = leg.clone();
+    leg2.position.x = -0.15;
+    group.add(leg2);
+
+    group.position.set(x, 0, z);
+    group.rotation.y = rotation;
+    scene.add(group);
+    return group;
+}
+
+createBody(-1.5, -1, 0.3);
+createBody(1, -2.5, -0.5);
+createBody(0.5, 0.5, 2.1);
+
+// ─── CLUE OBJECTS ───
+const clueObjects = [];
+const interactables = [];
+
+function addClueGroup(id, x, y, z, meshes, isStatic) {
+    const group = new THREE.Group();
+    meshes.forEach(m => group.add(m));
+    group.position.set(x, y, z);
+    group.userData = { type: 'clue', id, static: !!isStatic, baseY: y };
+    scene.add(group);
+    clueObjects.push(group);
+    meshes.forEach(m => {
+        m.userData = { type: 'clue', id };
+        interactables.push(m);
+    });
+    return group;
+}
+
+function addClueObject(id, x, y, z, shape) {
+    const mat = clueMat.clone();
+
+    if (shape === 'letter') {
+        // Torn parchment letter with curled corner + wax seal
+        const page = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.38), mat);
+        page.rotation.x = -Math.PI / 2;
+        const corner = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.1), mat);
+        corner.rotation.x = -Math.PI / 2 + 0.6;
+        corner.position.set(0.1, 0.03, -0.14);
+        const sealMat = new THREE.MeshStandardMaterial({ color: 0xaa2222, roughness: 0.4, emissive: 0x881111, emissiveIntensity: 0.4 });
+        const seal = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.01, 8), sealMat);
+        seal.position.set(-0.05, 0.005, 0.08);
+        return addClueGroup(id, x, y, z, [page, corner, seal], true);
+
+    } else if (shape === 'page') {
+        // Flat diary page
+        const page = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 0.36), mat);
+        page.rotation.x = -Math.PI / 2;
+        page.position.set(x, y, z);
+        page.userData = { type: 'clue', id, static: true, baseY: y };
+        page.castShadow = true;
+        scene.add(page);
+        clueObjects.push(page);
+        interactables.push(page);
+        return page;
+
+    } else if (shape === 'newspaper') {
+        // Folded newspaper with layered sheets + headline
+        const paperMat = mat;
+        const textMat = new THREE.MeshStandardMaterial({ color: 0xccbb88, roughness: 0.9, emissive: 0x887722, emissiveIntensity: 0.3 });
+        const sheet1 = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.3), paperMat);
+        sheet1.rotation.x = -Math.PI / 2;
+        const sheet2 = new THREE.Mesh(new THREE.PlaneGeometry(0.38, 0.14), paperMat);
+        sheet2.rotation.x = -Math.PI / 2;
+        sheet2.position.set(0.01, 0.003, -0.04);
+        const sheet3 = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.25), textMat);
+        sheet3.rotation.x = -Math.PI / 2 + 0.08;
+        sheet3.position.set(-0.05, 0.006, 0.02);
+        sheet3.rotation.z = 0.05;
+        const headline = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.003, 0.02),
+            new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8, emissive: 0x111111, emissiveIntensity: 0.2 }));
+        headline.position.set(0, 0.004, -0.08);
+        return addClueGroup(id, x, y, z, [sheet1, sheet2, sheet3, headline], true);
+
+    } else if (shape === 'poison_bottle') {
+        // Small glass poison bottle with cork
+        const glassMat = new THREE.MeshStandardMaterial({
+            color: 0x2a5a3a, roughness: 0.15, metalness: 0.1,
+            emissive: 0x1a3a2a, emissiveIntensity: 0.5,
+            transparent: true, opacity: 0.75
+        });
+        // Body — slightly tapered cylinder
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.12, 8), glassMat);
+        body.position.y = 0.06;
+        // Neck
+        const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.025, 0.04, 8), glassMat);
+        neck.position.y = 0.14;
+        // Cork
+        const corkMat = new THREE.MeshStandardMaterial({ color: 0x8b6b42, roughness: 0.9, emissive: 0x5a4a2a, emissiveIntensity: 0.3 });
+        const cork = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.015, 0.025, 6), corkMat);
+        cork.position.y = 0.17;
+        // Label
+        const labelMat = new THREE.MeshStandardMaterial({ color: 0xddcc99, roughness: 0.8, emissive: 0x887722, emissiveIntensity: 0.3 });
+        const label = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 0.035), labelMat);
+        label.position.set(0, 0.07, 0.04);
+        // Skull symbol on label (tiny red dot)
+        const skull = new THREE.Mesh(new THREE.SphereGeometry(0.005, 6, 6),
+            new THREE.MeshStandardMaterial({ color: 0xaa0000, emissive: 0x880000, emissiveIntensity: 0.8 }));
+        skull.position.set(0, 0.07, 0.042);
+        return addClueGroup(id, x, y, z, [body, neck, cork, label, skull], true);
+
+    } else if (shape === 'wine_glasses') {
+        // Three wine glasses with residue
+        const glassMat = new THREE.MeshStandardMaterial({
+            color: 0xccccdd, roughness: 0.1, metalness: 0.15,
+            emissive: 0x887766, emissiveIntensity: 0.3,
+            transparent: true, opacity: 0.6
+        });
+        const residueMat = new THREE.MeshStandardMaterial({
+            color: 0x5a1020, roughness: 0.5, emissive: 0x3a0810, emissiveIntensity: 0.5
+        });
+        const parts = [];
+        const offsets = [[-0.06, 0, -0.03], [0.06, 0, -0.02], [0, 0, 0.05]];
+        offsets.forEach(([ox, oy, oz]) => {
+            // Stem
+            const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.07, 6), glassMat);
+            stem.position.set(ox, 0.035, oz);
+            // Base
+            const base = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.005, 8), glassMat);
+            base.position.set(ox, 0.003, oz);
+            // Bowl (open top = use lathe)
+            const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.012, 0.055, 8, 1, true), glassMat);
+            bowl.position.set(ox, 0.095, oz);
+            // Wine residue at bottom of bowl
+            const residue = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.012, 0.008, 8), residueMat);
+            residue.position.set(ox, 0.073, oz);
+            parts.push(stem, base, bowl, residue);
+        });
+        return addClueGroup(id, x, y, z, parts, true);
+
+    } else if (shape === 'doctors_bag') {
+        // Gladstone-style doctor's bag — wider at top, narrows at bottom
+        const leatherMat = new THREE.MeshStandardMaterial({
+            color: 0x3a2218, roughness: 0.8, emissive: 0x2a1810, emissiveIntensity: 0.4
+        });
+        const leatherDark = new THREE.MeshStandardMaterial({
+            color: 0x261510, roughness: 0.85, emissive: 0x1a0e08, emissiveIntensity: 0.3
+        });
+        const metalMat = new THREE.MeshStandardMaterial({
+            color: 0xccaa44, roughness: 0.3, metalness: 0.7, emissive: 0x887722, emissiveIntensity: 0.4
+        });
+        // Bottom — narrow rectangular base
+        const base = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.04, 0.12), leatherDark);
+        base.position.y = 0.02;
+        // Left side panel — tapered (wider at top)
+        const lPanel = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.14, 0.13), leatherMat);
+        lPanel.position.set(-0.12, 0.10, 0);
+        lPanel.rotation.z = 0.15; // lean outward slightly
+        // Right side panel
+        const rPanel = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.14, 0.13), leatherMat);
+        rPanel.position.set(0.12, 0.10, 0);
+        rPanel.rotation.z = -0.15;
+        // Front panel
+        const fPanel = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.14, 0.02), leatherMat);
+        fPanel.position.set(0, 0.10, 0.065);
+        // Back panel
+        const bPanel = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.14, 0.02), leatherMat);
+        bPanel.position.set(0, 0.10, -0.065);
+        // Left flap (hinged open) — rotated outward
+        const lFlap = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.02, 0.14), leatherMat);
+        lFlap.position.set(-0.05, 0.19, 0);
+        lFlap.rotation.z = 0.35;
+        // Right flap (hinged open)
+        const rFlap = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.02, 0.14), leatherMat);
+        rFlap.position.set(0.05, 0.19, 0);
+        rFlap.rotation.z = -0.35;
+        // Metal frame at top opening — two bars
+        const frameL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.012, 0.012), metalMat);
+        frameL.position.set(-0.06, 0.175, 0);
+        const frameR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.012, 0.012), metalMat);
+        frameR.position.set(0.06, 0.175, 0);
+        // Clasp in center
+        const clasp = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.02, 0.025), metalMat);
+        clasp.position.set(0, 0.18, 0.065);
+        // Handle — arch on top
+        const handleMat = new THREE.MeshStandardMaterial({ color: 0x2a1810, roughness: 0.7, emissive: 0x1a1008, emissiveIntensity: 0.3 });
+        const handle = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.008, 6, 12, Math.PI), handleMat);
+        handle.rotation.z = Math.PI;
+        handle.position.set(0, 0.22, 0);
+        // Strap/buckle details
+        const strap = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.08, 0.005), leatherDark);
+        strap.position.set(0, 0.10, 0.073);
+        const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.015, 0.008), metalMat);
+        buckle.position.set(0, 0.12, 0.074);
+        return addClueGroup(id, x, y, z, [base, lPanel, rPanel, fPanel, bPanel,
+            lFlap, rFlap, frameL, frameR, clasp, handle, strap, buckle], true);
+
+    } else if (shape === 'muddy_boots') {
+        // Pair of muddy boots
+        const bootMat = new THREE.MeshStandardMaterial({
+            color: 0x3a2a1a, roughness: 0.85, emissive: 0x2a1a0a, emissiveIntensity: 0.4
+        });
+        const mudMat = new THREE.MeshStandardMaterial({
+            color: 0x4a3a20, roughness: 1.0, emissive: 0x3a2a10, emissiveIntensity: 0.3
+        });
+        const soleMat = new THREE.MeshStandardMaterial({ color: 0x1a1008, roughness: 0.95 });
+        const parts = [];
+        [-0.06, 0.06].forEach((ox, i) => {
+            // Boot shaft (tall cylinder)
+            const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.16, 8), bootMat);
+            shaft.position.set(ox, 0.08, 0);
+            // Foot / toe (stretched box)
+            const foot = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.05, 0.14), bootMat);
+            foot.position.set(ox, 0.025, 0.03);
+            // Sole
+            const sole = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.015, 0.15), soleMat);
+            sole.position.set(ox, 0.008, 0.03);
+            // Mud splotches
+            const mud1 = new THREE.Mesh(new THREE.SphereGeometry(0.02, 6, 6), mudMat);
+            mud1.scale.y = 0.3;
+            mud1.position.set(ox - 0.01, 0.015, 0.07);
+            const mud2 = new THREE.Mesh(new THREE.SphereGeometry(0.015, 6, 6), mudMat);
+            mud2.scale.y = 0.3;
+            mud2.position.set(ox + 0.02, 0.015, 0.01);
+            parts.push(shaft, foot, sole, mud1, mud2);
+            // Slight angle for natural look
+            if (i === 1) {
+                shaft.rotation.z = 0.05;
+                foot.rotation.y = 0.1;
+            }
+        });
+        return addClueGroup(id, x, y, z, parts, true);
+
+    } else if (shape === 'pocket_watch') {
+        // Round pocket watch with chain
+        const caseMat = new THREE.MeshStandardMaterial({
+            color: 0xccaa44, roughness: 0.25, metalness: 0.8,
+            emissive: 0x887722, emissiveIntensity: 0.5
+        });
+        const faceMat = new THREE.MeshStandardMaterial({
+            color: 0xeeeedd, roughness: 0.4, emissive: 0xccccaa, emissiveIntensity: 0.3
+        });
+        const darkMat = new THREE.MeshStandardMaterial({
+            color: 0x222222, roughness: 0.6, emissive: 0x111111, emissiveIntensity: 0.2
+        });
+        // Case back
+        const caseBack = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.008, 16), caseMat);
+        caseBack.rotation.x = -Math.PI / 2 + 0.1;
+        caseBack.position.y = 0.003;
+        // Watch face
+        const face = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.004, 16), faceMat);
+        face.rotation.x = -Math.PI / 2 + 0.1;
+        face.position.y = 0.009;
+        // Rim
+        const rim = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.004, 8, 24), caseMat);
+        rim.rotation.x = -Math.PI / 2 + 0.1;
+        rim.position.y = 0.006;
+        // Crown / winder knob
+        const crown = new THREE.Mesh(new THREE.SphereGeometry(0.007, 6, 6), caseMat);
+        crown.position.set(0, 0.01, -0.045);
+        // Hour hand
+        const hour = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.002, 0.02), darkMat);
+        hour.position.set(-0.005, 0.012, -0.005);
+        hour.rotation.y = 0.5;
+        // Minute hand
+        const minute = new THREE.Mesh(new THREE.BoxGeometry(0.002, 0.002, 0.028), darkMat);
+        minute.position.set(0.003, 0.013, 0.005);
+        minute.rotation.y = -0.8;
+        // Chain links (small torus segments)
+        const chainMat = new THREE.MeshStandardMaterial({ color: 0xaa8833, roughness: 0.3, metalness: 0.7, emissive: 0x665522, emissiveIntensity: 0.3 });
+        const chainParts = [];
+        for (let i = 0; i < 6; i++) {
+            const link = new THREE.Mesh(new THREE.TorusGeometry(0.006, 0.002, 4, 6), chainMat);
+            link.position.set(0.01 * i + 0.02, 0.003, -0.045 + 0.005 * Math.sin(i));
+            link.rotation.y = i * 0.3;
+            chainParts.push(link);
+        }
+        return addClueGroup(id, x, y, z, [caseBack, face, rim, crown, hour, minute, ...chainParts], true);
+    }
+
+    // Fallback
+    const geo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x, y, z);
+    mesh.userData = { type: 'clue', id, baseY: y };
+    mesh.castShadow = true;
+    scene.add(mesh);
+    clueObjects.push(mesh);
+    interactables.push(mesh);
+    return mesh;
+}
+
+// Place clues
+addClueObject('letter_desk', 8.3, 0.80, -9.8, 'letter');      // Study desk — beside candle
+addClueObject('poison_bottle', -10.8, 0.56, 5.1, 'poison_bottle'); // Kitchen bookshelf, 2nd shelf
+addClueObject('doctors_bag', 0, 0.5, -6, 'doctors_bag');      // Hallway table
+addClueObject('diary_page', -5.8, 0.41, -10.5, 'page');       // Bedroom nightstand
+addClueObject('muddy_boots', -5.5, 0.15, 3, 'muddy_boots');   // Kitchen floor near door
+addClueObject('newspaper', 5.5, 0.46, -10.5, 'newspaper');    // Study side table
+addClueObject('pocket_watch', 9, 0.7, 1.5, 'pocket_watch');   // Living room coffee table
+
+// ─── Solve desk (appears after all clues) ───
+const solveDeskMat = new THREE.MeshStandardMaterial({ color: 0xaa7722, roughness: 0.5, emissive: 0x553311, emissiveIntensity: 0.3 });
+const solveDesk = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), solveDeskMat);
+solveDesk.position.set(0, 0.8, 7);
+solveDesk.userData = { type: 'solve' };
+solveDesk.visible = false;
+scene.add(solveDesk);
+interactables.push(solveDesk);
+
+// ─── WINDOW GLOW ───
+function addWindow(x, y, z, w, h, rotY) {
+    const geo = new THREE.PlaneGeometry(w, h);
+    const mat = new THREE.MeshStandardMaterial({
+        color: 0x1a2040, emissive: 0x0a1030, emissiveIntensity: 0.3,
+        transparent: true, opacity: 0.5, side: THREE.DoubleSide
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x, y, z);
+    mesh.rotation.y = rotY;
+    scene.add(mesh);
+}
+addWindow(-11.8, 1.8, 3, 2, 1.5, Math.PI/2);
+addWindow(-11.8, 1.8, -9, 2, 1.5, Math.PI/2);
+addWindow(11.8, 1.8, 3, 2, 1.5, Math.PI/2);
+addWindow(11.8, 1.8, -9, 2, 1.5, Math.PI/2);
+addWindow(0, 1.8, 11.8, 2.5, 1.5, 0);
+
+// ─── DECORATIVE CANDLES (GLB models with bright pulsating flames) ───
+const flames = [];
+const flameMat = new THREE.MeshStandardMaterial({
+    color: 0xffcc00, emissive: 0xff6600, emissiveIntensity: 3,
+    transparent: true, opacity: 0.9
+});
+function addDetailedCandle(x, surfaceY, z, scale) {
+    const s = scale || 1.0;
+    placeModel('candle', x, surfaceY, z, s, 0, 0.8);
+    // Add a separate bright flame sphere on top of the candle
+    // Candle model flame center is at local y=0.39, scaled
+    const flameY = surfaceY + 0.39 * s;
+    const flame = new THREE.Mesh(new THREE.SphereGeometry(0.03 * s, 6, 6), flameMat.clone());
+    flame.position.set(x, flameY, z);
+    scene.add(flame);
+    flames.push(flame);
+}
+// Kitchen table top = 0.76*0.8 = 0.61
+addDetailedCandle(-7, 0.61, 5, 1.2);
+// Living room coffee table top = 0.76*0.6 = 0.46
+addDetailedCandle(9, 0.46, 1.5, 1.2);
+// Dining table top = 0.76*1.2 = 0.91
+addDetailedCandle(0, 0.91, -1.5, 1.0);
+// Bedroom nightstand top = 0.565*0.7 = 0.40
+addDetailedCandle(-5.8, 0.40, -10.5, 1.0);
+// Study desk top = 0.79
+addDetailedCandle(7.5, 0.79, -10.2, 1.0);
+
+// ─── PAINTING FRAMES ───
+function addPainting(x, y, z, w, h, rotY, color) {
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(w + 0.1, h + 0.1, 0.05),
+        new THREE.MeshStandardMaterial({ color: 0x4a3520, roughness: 0.6 }));
+    frame.position.set(x, y, z); frame.rotation.y = rotY;
+    scene.add(frame);
+    const canvas = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+        new THREE.MeshStandardMaterial({ color: color, roughness: 0.9, side: THREE.DoubleSide }));
+    canvas.position.set(x, y, z + (rotY === 0 ? -0.03 : 0));
+    canvas.rotation.y = rotY;
+    if (Math.abs(rotY) > 0.1) canvas.position.z = z;
+    if (Math.abs(rotY) > 0.1) canvas.position.x = x + (rotY > 0 ? -0.03 : 0.03);
+    scene.add(canvas);
+}
+addPainting(0, 2, 11.7, 1.5, 1, 0, 0x2a3a2a);
+addPainting(-11.7, 2, -2, 1.2, 0.9, Math.PI/2, 0x3a2a2a);
+addPainting(11.7, 2, -2, 1.2, 0.9, -Math.PI/2, 0x2a2a3a);
+
+// ─── CONTROLS ───
+const moveState = { forward: false, backward: false, left: false, right: false };
+const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+const velocity = new THREE.Vector3();
+const direction = new THREE.Vector3();
+const SPEED = 5;
+const playerRadius = 0.4;
+let isPointerLocked = false;
+let gameStarted = false;
+let isMouseDown = false;
+let pointerLockSupported = false;
+
+// Pointer lock
+const blocker = document.getElementById('blocker');
+
+function startGame() {
+    blocker.classList.add('hidden');
+    state.locked = false;
+    gameStarted = true;
+
+    if (isMobile) {
+        // Android/Chrome: use Fullscreen API (works on Android)
+        const el = document.documentElement;
+        const rfs = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+        if (rfs) {
+            rfs.call(el).catch(() => {});
+        }
+
+        // iOS Safari: scroll trick to minimize address bar
+        const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+        const isStandalone = window.navigator.standalone === true;
+        if (isIOS && !isStandalone) {
+            // Briefly make page taller so scroll hides chrome
+            const orig = document.body.style.cssText;
+            document.body.style.position = 'relative';
+            document.body.style.height = (window.innerHeight + 100) + 'px';
+            document.body.style.overflow = 'auto';
+            setTimeout(() => {
+                window.scrollTo(0, 1);
+                setTimeout(() => {
+                    document.body.style.cssText = orig;
+                    document.body.style.position = 'fixed';
+                    handleResize();
+                }, 400);
+            }, 50);
+
+            // Show "Add to Home Screen" tip (only once)
+            if (!localStorage.getItem('iosBannerDismissed')) {
+                const banner = document.getElementById('ios-banner');
+                banner.style.display = 'block';
+                document.getElementById('dismiss-ios').addEventListener('click', () => {
+                    banner.style.display = 'none';
+                    localStorage.setItem('iosBannerDismissed', '1');
+                });
+                // Auto-hide after 8 seconds
+                setTimeout(() => { banner.style.display = 'none'; }, 8000);
+            }
+        }
+
+        // Trigger resize to fit actual visible viewport
+        setTimeout(handleResize, 200);
+    }
+}
+
+function requestLock() {
+    const target = renderer.domElement;
+    if (target.requestPointerLock) {
+        try {
+            const result = target.requestPointerLock();
+            if (result && result.then) {
+                result.then(() => { pointerLockSupported = true; }).catch(() => { pointerLockSupported = false; });
+            }
+        } catch(e) {
+            pointerLockSupported = false;
+        }
+    }
+}
+
+blocker.addEventListener('click', () => {
+    startGame();
+    setTimeout(requestLock, 100);
+});
+
+renderer.domElement.addEventListener('click', () => {
+    if (gameStarted && !isPointerLocked && !state.paused) {
+        requestLock();
+    }
+});
+
+document.addEventListener('pointerlockchange', () => {
+    isPointerLocked = !!document.pointerLockElement;
+    if (isPointerLocked) {
+        pointerLockSupported = true;
+        blocker.classList.add('hidden');
+        state.locked = false;
+        gameStarted = true;
+    } else if (pointerLockSupported && !state.showingClue && !state.paused) {
+        blocker.classList.remove('hidden');
+        state.locked = true;
+    } else if (state.paused) {
+        // Pointer lock exited for a popup — don't show blocker
+    }
+});
+
+// Mouse look — works with pointer lock OR click-and-drag fallback
+renderer.domElement.addEventListener('mousedown', (e) => {
+    if (gameStarted && !isPointerLocked && e.button === 0) {
+        isMouseDown = true;
+    }
+});
+document.addEventListener('mouseup', () => { isMouseDown = false; });
+
+document.addEventListener('mousemove', (e) => {
+    if (state.paused) return;
+    // Accept movement from pointer lock OR mouse drag
+    const canLook = isPointerLocked || (gameStarted && isMouseDown && !state.locked);
+    if (!canLook) return;
+
+    const mx = e.movementX || 0;
+    const my = e.movementY || 0;
+
+    euler.setFromQuaternion(camera.quaternion);
+    euler.y -= mx * 0.002;
+    euler.x -= my * 0.002;
+    euler.x = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, euler.x));
+    camera.quaternion.setFromEuler(euler);
+});
+
+document.addEventListener('keydown', (e) => {
+    switch(e.code) {
+        case 'ArrowUp': moveState.forward = true; e.preventDefault(); break;
+        case 'ArrowDown': moveState.backward = true; e.preventDefault(); break;
+        case 'ArrowLeft': moveState.left = true; e.preventDefault(); break;
+        case 'ArrowRight': moveState.right = true; e.preventDefault(); break;
+        case 'KeyE': interact(); break;
+        case 'KeyJ': toggleJournal(); break;
+        case 'Escape':
+            closePopups();
+            break;
+    }
+});
+
+document.addEventListener('keyup', (e) => {
+    switch(e.code) {
+        case 'ArrowUp': moveState.forward = false; break;
+        case 'ArrowDown': moveState.backward = false; break;
+        case 'ArrowLeft': moveState.left = false; break;
+        case 'ArrowRight': moveState.right = false; break;
+    }
+});
+
+// ─── MOBILE TOUCH CONTROLS ───
+const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+const isMobile = isTouchDevice && /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+if (isMobile) document.body.classList.add('is-touch');
+
+// Virtual joystick
+const joystickZone = document.getElementById('joystick-zone');
+const joystickKnob = document.getElementById('joystick-knob');
+let joystickTouchId = null;
+let joystickCenter = { x: 0, y: 0 };
+const JOYSTICK_RADIUS = 45;
+
+joystickZone.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (joystickTouchId !== null) return;
+    const touch = e.changedTouches[0];
+    joystickTouchId = touch.identifier;
+    const rect = joystickZone.getBoundingClientRect();
+    joystickCenter.x = rect.left + rect.width / 2;
+    joystickCenter.y = rect.top + rect.height / 2;
+    handleJoystickMove(touch);
+}, { passive: false });
+
+joystickZone.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    for (const touch of e.changedTouches) {
+        if (touch.identifier === joystickTouchId) {
+            handleJoystickMove(touch);
+            break;
+        }
+    }
+}, { passive: false });
+
+function resetJoystick() {
+    joystickTouchId = null;
+    joystickKnob.style.transform = 'translate(-50%, -50%)';
+    moveState.forward = false;
+    moveState.backward = false;
+    moveState.left = false;
+    moveState.right = false;
+}
+
+joystickZone.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    for (const touch of e.changedTouches) {
+        if (touch.identifier === joystickTouchId) { resetJoystick(); break; }
+    }
+}, { passive: false });
+
+joystickZone.addEventListener('touchcancel', (e) => {
+    for (const touch of e.changedTouches) {
+        if (touch.identifier === joystickTouchId) { resetJoystick(); break; }
+    }
+}, { passive: false });
+
+function handleJoystickMove(touch) {
+    let dx = touch.clientX - joystickCenter.x;
+    let dy = touch.clientY - joystickCenter.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > JOYSTICK_RADIUS) {
+        dx = (dx / dist) * JOYSTICK_RADIUS;
+        dy = (dy / dist) * JOYSTICK_RADIUS;
+    }
+    joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    const deadzone = 0.25;
+    const nx = dx / JOYSTICK_RADIUS;
+    const ny = dy / JOYSTICK_RADIUS;
+    moveState.forward = ny < -deadzone;
+    moveState.backward = ny > deadzone;
+    moveState.left = nx < -deadzone;
+    moveState.right = nx > deadzone;
+}
+
+// Touch look (drag anywhere outside joystick)
+let lookTouchId = null;
+let lastLookX = 0, lastLookY = 0;
+
+renderer.domElement.addEventListener('touchstart', (e) => {
+    if (!gameStarted || state.paused) return;
+    // Find a touch that's NOT on the joystick or buttons
+    for (const touch of e.changedTouches) {
+        const el = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (el && (el.closest('#joystick-zone') || el.closest('.touch-btn'))) continue;
+        if (lookTouchId === null) {
+            lookTouchId = touch.identifier;
+            lastLookX = touch.clientX;
+            lastLookY = touch.clientY;
+        }
+    }
+}, { passive: true });
+
+renderer.domElement.addEventListener('touchmove', (e) => {
+    if (lookTouchId === null || state.paused) return;
+    for (const touch of e.changedTouches) {
+        if (touch.identifier === lookTouchId) {
+            const dx = touch.clientX - lastLookX;
+            const dy = touch.clientY - lastLookY;
+            lastLookX = touch.clientX;
+            lastLookY = touch.clientY;
+            euler.setFromQuaternion(camera.quaternion);
+            euler.y -= dx * 0.004;
+            euler.x -= dy * 0.004;
+            euler.x = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, euler.x));
+            camera.quaternion.setFromEuler(euler);
+            break;
+        }
+    }
+}, { passive: true });
+
+renderer.domElement.addEventListener('touchend', (e) => {
+    for (const touch of e.changedTouches) {
+        if (touch.identifier === lookTouchId) {
+            lookTouchId = null;
+            break;
+        }
+    }
+}, { passive: true });
+
+// Touch buttons
+document.getElementById('interaction-prompt').addEventListener('touchstart', (e) => {
+    e.preventDefault(); interact();
+}, { passive: false });
+
+document.getElementById('btn-journal').addEventListener('touchstart', (e) => {
+    e.preventDefault(); toggleJournal();
+}, { passive: false });
+
+// Tap-to-close for journal & solve panel (distinguish tap from scroll)
+(function() {
+    function addTapToClose(el, closeFn) {
+        let startY = 0, startX = 0, moved = false, startTarget = null;
+        el.addEventListener('touchstart', (e) => {
+            moved = false;
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            startTarget = e.target;
+        }, { passive: true });
+        el.addEventListener('touchmove', (e) => {
+            const dx = e.touches[0].clientX - startX;
+            const dy = e.touches[0].clientY - startY;
+            if (Math.abs(dx) > 10 || Math.abs(dy) > 10) moved = true;
+        }, { passive: true });
+        el.addEventListener('touchend', (e) => {
+            // Don't close if tap was on a button (let onclick fire instead)
+            if (startTarget && startTarget.closest('button')) return;
+            if (!moved) closeFn();
+        }, { passive: true });
+    }
+    addTapToClose(document.getElementById('journal'), () => toggleJournal());
+    addTapToClose(document.getElementById('solve-panel'), () => closePopups());
+})();
+
+// Also start game on touch for mobile
+blocker.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    startGame();
+}, { passive: false });
+
+// ─── RAYCASTER ───
+const raycaster = new THREE.Raycaster();
+raycaster.far = 4;
+const screenCenter = new THREE.Vector2(0, 0);
+let hoveredObject = null;
+
+function updateRaycast() {
+    raycaster.setFromCamera(screenCenter, camera);
+    const hits = raycaster.intersectObjects(interactables);
+    const prompt = document.getElementById('interaction-prompt');
+
+    if (hits.length > 0 && hits[0].object.visible) {
+        const obj = hits[0].object;
+        hoveredObject = obj;
+        if (obj.userData.type === 'clue') {
+            const clue = CLUES[obj.userData.id];
+            if (state.cluesFound.includes(obj.userData.id)) {
+                prompt.textContent = `${clue.icon} ${clue.name} (redan insamlad)`;
+            } else {
+                prompt.textContent = isMobile
+                    ? `Tryck här: ${clue.icon} ${clue.name}`
+                    : `Tryck E för att undersöka: ${clue.icon} ${clue.name}`;
+            }
+            prompt.style.display = 'block';
+        } else if (obj.userData.type === 'solve') {
+            prompt.textContent = isMobile
+                ? '🔍 Tryck här för att anklaga'
+                : '🔍 Tryck E för att göra din anklagelse';
+            prompt.style.display = 'block';
+        }
+    } else {
+        hoveredObject = null;
+        prompt.style.display = 'none';
+    }
+}
+
+// ─── INTERACTION ───
+function interact() {
+    // Close popups first — must be checked before paused gate
+    if (state.showingClue) {
+        closeCluePopup();
+        return;
+    }
+
+    if (state.paused || state.locked) return;
+
+    if (!hoveredObject) return;
+
+    if (hoveredObject.userData.type === 'clue') {
+        collectClue(hoveredObject);
+    } else if (hoveredObject.userData.type === 'solve') {
+        openSolvePanel();
+    }
+}
+
+function collectClue(obj) {
+    const id = obj.userData.id;
+    if (state.cluesFound.includes(id)) {
+        // Show it again
+        showCluePopup(CLUES[id]);
+        return;
+    }
+
+    state.cluesFound.push(id);
+    const clue = CLUES[id];
+
+    // Glow effect then shrink
+    obj.material.emissiveIntensity = 2;
+
+    showCluePopup(clue);
+    updateHUD();
+
+    // Check if all clues found
+    if (state.cluesFound.length >= state.totalClues) {
+        solveDesk.visible = true;
+    }
+}
+
+function showCluePopup(clue) {
+    state.showingClue = true;
+    state.paused = true;
+    if (document.pointerLockElement) document.exitPointerLock();
+    const popup = document.getElementById('clue-popup');
+    popup.querySelector('h3').textContent = `${clue.icon} ${clue.title}`;
+    popup.querySelector('p').textContent = clue.description;
+    popup.style.display = 'block';
+}
+
+function closeCluePopup() {
+    state.showingClue = false;
+    state.paused = false;
+    document.getElementById('clue-popup').style.display = 'none';
+    if (pointerLockSupported) setTimeout(requestLock, 100);
+}
+
+document.getElementById('clue-popup').addEventListener('click', closeCluePopup);
+document.getElementById('clue-popup').addEventListener('touchstart', (e) => {
+    e.preventDefault(); closeCluePopup();
+}, { passive: false });
+
+function toggleJournal() {
+    const journal = document.getElementById('journal');
+    if (journal.style.display === 'block') {
+        journal.style.display = 'none';
+        state.paused = false;
+        if (pointerLockSupported) setTimeout(requestLock, 100);
+    } else {
+        updateJournal();
+        journal.style.display = 'block';
+        state.paused = true;
+        if (document.pointerLockElement) document.exitPointerLock();
+    }
+}
+
+function updateJournal() {
+    const entries = document.getElementById('journal-entries');
+    if (state.cluesFound.length === 0) {
+        entries.innerHTML = '<p style="color:#665a3a; text-align:center; font-style:italic;">Inga ledtrådar funna ännu. Sök igenom huset...</p>';
+        return;
+    }
+    entries.innerHTML = state.cluesFound.map(id => {
+        const c = CLUES[id];
+        return `<div class="entry"><h4>${c.icon} ${c.title} <span style="color:#665a3a; font-size:11px;">[${c.room}]</span></h4><p>${c.description}</p></div>`;
+    }).join('');
+}
+
+function closePopups() {
+    if (state.showingClue) closeCluePopup();
+    document.getElementById('journal').style.display = 'none';
+    document.getElementById('solve-panel').style.display = 'none';
+    state.paused = false;
+    if (pointerLockSupported && !document.pointerLockElement) setTimeout(requestLock, 100);
+}
+
+function openSolvePanel() {
+    state.paused = true;
+    document.getElementById('solve-panel').style.display = 'block';
+    document.exitPointerLock();
+}
+
+// ─── ACCUSATION ───
+window.accuseSuspect = function(suspect) {
+    document.getElementById('solve-panel').style.display = 'none';
+    const ending = document.getElementById('ending');
+    const title = document.getElementById('ending-title');
+    const text = document.getElementById('ending-text');
+
+    if (suspect === 'wife') {
+        title.textContent = '🏆 FALLET LÖST';
+        text.innerHTML = `<strong>Victoria Blackwood</strong> är mördaren.<br><br>
+            Hon konspirerade med Dr. Harlan Crowe för att förgifta de tre hamnarbetarna som skulle vittna
+            mot Blackwood Shipping Co. Dr. Crowe tillhandahöll oleanderextraktet. Victoria blandade det i vinet.
+            De tre männen drack tillsammans, utan att veta att det var deras sista måltid.<br><br>
+            Dagboken bekräftade hennes motiv. Brevet bekräftade utpressningen. Tidningen bekräftade kopplingen.
+            Giftflaskan och doktorns kvitto beseglade fallet.<br><br>
+            <strong>Edward Bolt löser ännu ett fall.</strong><br><br>
+            <em>"Sanningen gömmer sig alltid i öppen dager — man behöver bara veta var man ska leta."</em><br><br>
+            <span style="color:#665a3a;">[ Tryck här för att spela igen ]</span>`;
+    } else if (suspect === 'doctor') {
+        title.textContent = '❌ NÄRA, MEN INTE RÄTT';
+        text.innerHTML = `Dr. Crowe levererade giftet, ja — men han var inte hjärnan bakom det hela.
+            Titta noggrannare på bevisen. Vem hade det verkliga motivet? Vem skrev i dagboken?
+            Vem blev utpressad?<br><br>
+            <span style="color:#665a3a;">[ Tryck här för att försöka igen ]</span>`;
+    } else if (suspect === 'maid') {
+        title.textContent = '❌ FEL ANKLAGELSE';
+        text.innerHTML = `Margaret, hembiträdet, är oskyldig. De leriga stövlarna var hennes — hon hade varit i trädgården
+            den dagen trots vad hon påstod — men hon hade bara en affär med trädgårdsmästaren — inget mord.
+            Den verkliga mördaren hade mycket mer att förlora.<br><br>
+            <span style="color:#665a3a;">[ Tryck här för att försöka igen ]</span>`;
+    } else {
+        title.textContent = '❌ FEL ANKLAGELSE';
+        text.innerHTML = `Thomas Finch, advokaten, var girig, men ingen mördare. Han tjänade redan pengar på
+            familjen Blackwoods juridiska problem. Varför skulle han avsluta det? Leta efter någon med ett mer desperat motiv.<br><br>
+            <span style="color:#665a3a;">[ Tryck här för att försöka igen ]</span>`;
+    }
+
+    ending.style.display = 'flex';
+};
+
+// Tap/click ending screen to reload
+document.getElementById('ending').addEventListener('click', () => {
+    location.reload();
+});
+document.getElementById('ending').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    location.reload();
+}, { passive: false });
+
+// ─── UPDATE HUD ───
+function updateHUD() {
+    document.getElementById('clue-num').textContent = state.cluesFound.length;
+    updateInventory();
+}
+
+function updateInventory() {
+    const inv = document.getElementById('inventory');
+    inv.innerHTML = '';
+    for (let i = 0; i < state.totalClues; i++) {
+        const slot = document.createElement('div');
+        slot.className = 'inv-slot' + (i < state.cluesFound.length ? ' filled' : '');
+        if (i < state.cluesFound.length) {
+            slot.textContent = CLUES[state.cluesFound[i]].icon;
+        }
+        inv.appendChild(slot);
+    }
+}
+updateInventory();
+
+// ─── ROOM DETECTION ───
+function detectRoom() {
+    const x = camera.position.x;
+    const z = camera.position.z;
+
+    if (z > 5.5 && x > -4 && x < 4) return 'Entréhall';
+    if (x < -4 && z > -4) return 'Kök';
+    if (x > 4 && z > -4) return 'Vardagsrum';
+    if (x > -4 && x < 4 && z > -4 && z <= 5.5) return 'Matsal';
+    if (x > -4 && x < 4 && z <= -4) return 'Korridor';
+    if (x < -4 && z <= -4) return 'Sovrum';
+    if (x > 4 && z <= -4) return 'Arbetsrum';
+    return 'Blackwood Manor';
+}
+
+// ─── MINIMAP ───
+const minimapCanvas = document.getElementById('minimap');
+const mCtx = minimapCanvas.getContext('2d');
+minimapCanvas.width = 150;
+minimapCanvas.height = 150;
+
+function drawMinimap() {
+    mCtx.clearRect(0, 0, 150, 150);
+    mCtx.fillStyle = 'rgba(10,8,4,0.8)';
+    mCtx.fillRect(0, 0, 150, 150);
+
+    const scale = 150 / 28;
+    const ox = 75;
+    const oz = 75;
+
+    function tx(x) { return ox + x * scale; }
+    function tz(z) { return oz - z * scale; }
+
+    // Draw walls
+    mCtx.strokeStyle = 'rgba(200,180,120,0.4)';
+    mCtx.lineWidth = 1.5;
+    mCtx.strokeRect(tx(-12), tz(12), 24 * scale, 24 * scale);
+
+    // Interior walls (with doorway gaps)
+    mCtx.beginPath();
+    // Horizontal wall z=-4: left side with doorway at x=-9 to x=-7
+    mCtx.moveTo(tx(-12), tz(-4)); mCtx.lineTo(tx(-9), tz(-4));
+    mCtx.moveTo(tx(-7), tz(-4)); mCtx.lineTo(tx(-2), tz(-4));
+    // Horizontal wall z=-4: right side with doorway at x=7 to x=9
+    mCtx.moveTo(tx(2), tz(-4)); mCtx.lineTo(tx(7), tz(-4));
+    mCtx.moveTo(tx(9), tz(-4)); mCtx.lineTo(tx(12), tz(-4));
+    // Left vertical wall with gap at z=-1.5 to z=-3 and z=-4.5 to z=-7.5
+    mCtx.moveTo(tx(-4), tz(5.5)); mCtx.lineTo(tx(-4), tz(-1.5));
+    mCtx.moveTo(tx(-4), tz(-3)); mCtx.lineTo(tx(-4), tz(-4.5));
+    mCtx.moveTo(tx(-4), tz(-7.5)); mCtx.lineTo(tx(-4), tz(-12));
+    // Right vertical wall with gap at z=-1.5 to z=-3 and z=-4.5 to z=-7.5
+    mCtx.moveTo(tx(4), tz(5.5)); mCtx.lineTo(tx(4), tz(-1.5));
+    mCtx.moveTo(tx(4), tz(-3)); mCtx.lineTo(tx(4), tz(-4.5));
+    mCtx.moveTo(tx(4), tz(-7.5)); mCtx.lineTo(tx(4), tz(-12));
+    // Back divider wall
+    mCtx.moveTo(tx(-2), tz(-8)); mCtx.lineTo(tx(2), tz(-8));
+    mCtx.stroke();
+
+    // Room labels
+    mCtx.fillStyle = 'rgba(200,180,120,0.25)';
+    mCtx.font = '7px Georgia';
+    mCtx.textAlign = 'center';
+    mCtx.fillText('Kök', tx(-8), tz(2));
+    mCtx.fillText('Matsal', tx(0), tz(1));
+    mCtx.fillText('Vardags.', tx(8), tz(2));
+    mCtx.fillText('Korr.', tx(0), tz(-5.5));
+    mCtx.fillText('Sovrum', tx(-8), tz(-8));
+    mCtx.fillText('Arbets.', tx(8), tz(-8));
+    mCtx.fillText('Entré', tx(0), tz(8));
+
+    // Clue markers
+    clueObjects.forEach(obj => {
+        const id = obj.userData.id;
+        const found = state.cluesFound.includes(id);
+        mCtx.fillStyle = found ? 'rgba(100,200,100,0.6)' : 'rgba(255,200,60,0.7)';
+        mCtx.beginPath();
+        mCtx.arc(tx(obj.position.x), tz(obj.position.z), found ? 2 : 3, 0, Math.PI * 2);
+        mCtx.fill();
+    });
+
+    // Player
+    mCtx.fillStyle = '#e8d8a0';
+    mCtx.beginPath();
+    mCtx.arc(tx(camera.position.x), tz(camera.position.z), 4, 0, Math.PI * 2);
+    mCtx.fill();
+
+    // Direction
+    const dir = new THREE.Vector3(0, 0, -1);
+    dir.applyQuaternion(camera.quaternion);
+    mCtx.strokeStyle = '#e8d8a0';
+    mCtx.lineWidth = 1.5;
+    mCtx.beginPath();
+    mCtx.moveTo(tx(camera.position.x), tz(camera.position.z));
+    mCtx.lineTo(tx(camera.position.x + dir.x * 2), tz(camera.position.z + dir.z * 2));
+    mCtx.stroke();
+}
+
+// ─── COLLISION ───
+function checkCollision(newPos) {
+    const playerBox = new THREE.Box3(
+        new THREE.Vector3(newPos.x - playerRadius, 0, newPos.z - playerRadius),
+        new THREE.Vector3(newPos.x + playerRadius, 1.8, newPos.z + playerRadius)
+    );
+    for (const box of colliders) {
+        if (playerBox.intersectsBox(box)) return true;
+    }
+    // World bounds
+    if (newPos.x < -11.5 || newPos.x > 11.5 || newPos.z < -11.5 || newPos.z > 11.5) return true;
+    return false;
+}
+
+// ─── GAME LOOP ───
+const clock = new THREE.Clock();
+
+function animate() {
+    requestAnimationFrame(animate);
+    const delta = Math.min(clock.getDelta(), 0.1);
+
+    if (gameStarted && !state.paused) {
+        // Movement
+        direction.set(0, 0, 0);
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+        forward.y = 0; forward.normalize();
+        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+        right.y = 0; right.normalize();
+
+        if (moveState.forward) direction.add(forward);
+        if (moveState.backward) direction.sub(forward);
+        if (moveState.right) direction.add(right);
+        if (moveState.left) direction.sub(right);
+
+        if (direction.length() > 0) {
+            direction.normalize();
+            const newPos = camera.position.clone().add(direction.multiplyScalar(SPEED * delta));
+            // Try X and Z separately for sliding
+            const testX = camera.position.clone();
+            testX.x = newPos.x;
+            const testZ = camera.position.clone();
+            testZ.z = newPos.z;
+
+            if (!checkCollision(testX)) camera.position.x = testX.x;
+            if (!checkCollision(testZ)) camera.position.z = testZ.z;
+        }
+
+        // Head bob
+        if (direction.length() > 0) {
+            camera.position.y = 1.7 + Math.sin(clock.elapsedTime * 8) * 0.03;
+        } else {
+            camera.position.y = 1.7 + Math.sin(clock.elapsedTime * 1.5) * 0.005;
+        }
+
+        updateRaycast();
+    } else if (!gameStarted) {
+        document.getElementById('interaction-prompt').style.display = 'none';
+    }
+
+    // Flicker candle lights
+    candleLights.forEach((light, i) => {
+        light.intensity = 0.6 + Math.sin(clock.elapsedTime * 3 + i * 1.5) * 0.3 + Math.random() * 0.1;
+    });
+    flames.forEach((flame, i) => {
+        const pulse = Math.sin(clock.elapsedTime * 5 + i * 2);
+        flame.scale.setScalar(0.8 + pulse * 0.3);
+        if (flame.material) flame.material.emissiveIntensity = 1.5 + pulse * 0.8 + Math.random() * 0.3;
+    });
+
+    // Clue glow pulse
+    clueObjects.forEach((obj, i) => {
+        const ud = obj.userData;
+        const id = ud ? ud.id : null;
+        if (id && !state.cluesFound.includes(id)) {
+            const emissive = 0.3 + Math.sin(clock.elapsedTime * 2 + i) * 0.3;
+            if (obj.material) {
+                obj.material.emissiveIntensity = emissive;
+            } else if (obj.traverse) {
+                obj.traverse(c => { if (c.isMesh && c.material) c.material.emissiveIntensity = emissive; });
+            }
+            // Only bob non-static objects (skip letters/pages that should stay on surfaces)
+            if (!ud.static && ud.baseY !== undefined) {
+                obj.position.y = ud.baseY + Math.sin(clock.elapsedTime * 2 + i) * 0.05;
+            }
+        } else if (id) {
+            if (ud.baseY !== undefined) obj.position.y = ud.baseY;
+            if (obj.material) {
+                obj.material.emissiveIntensity = 0.1;
+                obj.material.opacity = 0.5;
+            } else if (obj.traverse) {
+                obj.traverse(c => { if (c.isMesh && c.material) { c.material.emissiveIntensity = 0.1; c.material.opacity = 0.5; } });
+            }
+        }
+    });
+
+    // Solve desk pulse
+    if (solveDesk.visible) {
+        solveDesk.rotation.y += delta * 0.5;
+        solveDesk.material.emissiveIntensity = 0.3 + Math.sin(clock.elapsedTime * 3) * 0.3;
+    }
+
+    // Room detection
+    const room = detectRoom();
+    if (room !== state.currentRoom) {
+        state.currentRoom = room;
+        document.getElementById('room-name').textContent = room;
+    }
+
+    drawMinimap();
+    renderer.render(scene, camera);
+}
+
+animate();
+
+// ─── RESIZE (visualViewport-aware for iOS) ───
+function handleResize() {
+    const vv = window.visualViewport;
+    const w = vv ? vv.width : window.innerWidth;
+    const h = vv ? vv.height : window.innerHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+}
+window.addEventListener('resize', handleResize);
+if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', handleResize);
+    window.visualViewport.addEventListener('scroll', handleResize);
+}
+
+</script>
+</body>
+</html>
