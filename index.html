@@ -134,6 +134,7 @@
             border: 1px solid #c8b47a;
             padding: 40px; max-width: 600px; width: 90%;
             z-index: 60; display: none; color: #c8b47a; text-align: center;
+            max-height: 80vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
         }
         #solve-panel h2 { margin-bottom: 20px; color: #e8d8a0; }
         #solve-panel .suspects { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
@@ -1994,7 +1995,8 @@ function drawMinimap() {
     const ox = 75;
     const oz = 75;
 
-    function tx(x) { return ox + x * scale; }
+    // Mirror X so minimap matches in-game left/right orientation
+    function tx(x) { return ox - x * scale; }
     function tz(z) { return oz - z * scale; }
 
     // Draw walls
