@@ -151,11 +151,18 @@
             background: rgba(0,0,0,0.95);
             display: none; align-items: center; justify-content: center;
             z-index: 200; color: #c8b47a; text-align: center;
-            cursor: pointer;
+            cursor: default;
         }
-        #ending .inner { max-width: 600px; padding: 40px; }
+        #ending .inner { max-width: 600px; padding: 40px; max-height: 80vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         #ending h2 { font-size: 36px; color: #e8d8a0; margin-bottom: 20px; }
         #ending p { font-size: 15px; line-height: 1.9; color: #a89660; }
+        #ending .actions { margin-top: 18px; }
+        #ending .btn {
+            background: rgba(200,180,120,0.08); border: 1px solid #c8b47a; color: #e8d8a0;
+            padding: 10px 18px; font-size: 15px; cursor: pointer; border-radius: 4px;
+            font-family: Georgia, serif;
+        }
+        #ending .btn:hover { background: rgba(200,180,120,0.2); }
 
         #minimap {
             position: fixed; bottom: 20px; right: 20px;
@@ -344,6 +351,7 @@
     <div class="inner">
         <h2 id="ending-title"></h2>
         <p id="ending-text"></p>
+        <div class="actions"><button id="ending-close" class="btn">Spela igen</button></div>
     </div>
 </div>
 
@@ -1936,14 +1944,17 @@ window.accuseSuspect = function(suspect) {
     ending.style.display = 'flex';
 };
 
-// Tap/click ending screen to reload
-document.getElementById('ending').addEventListener('click', () => {
-    location.reload();
-});
-document.getElementById('ending').addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    location.reload();
-}, { passive: false });
+// Only reload when the ending close button is pressed
+const endingCloseBtn = document.getElementById('ending-close');
+if (endingCloseBtn) {
+    endingCloseBtn.addEventListener('click', () => {
+        location.reload();
+    });
+    endingCloseBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        location.reload();
+    }, { passive: false });
+}
 
 // ─── UPDATE HUD ───
 function updateHUD() {
