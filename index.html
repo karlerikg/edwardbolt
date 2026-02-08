@@ -1742,6 +1742,26 @@ const screenCenter = new THREE.Vector2(0, 0);
 let hoveredObject = null;
 
 function updateRaycast() {
+    // Compute raycast NDC from the actual crosshair DOM position so
+    // the ray aligns with the visual center even when safe-area insets
+    // or PWA fullscreen change the viewport offset.
+    try {
+        const cross = document.getElementById('crosshair');
+        const ch = cross.getBoundingClientRect();
+        const canv = renderer.domElement.getBoundingClientRect();
+        if (canv.width > 0 && canv.height > 0) {
+            const cx = ch.left + ch.width * 0.5;
+            const cy = ch.top + ch.height * 0.5;
+            const ndcX = ((cx - canv.left) / canv.width) * 2 - 1;
+            const ndcY = -(((cy - canv.top) / canv.height) * 2 - 1);
+            screenCenter.set(ndcX, ndcY);
+        } else {
+            screenCenter.set(0, 0);
+        }
+    } catch (err) {
+        screenCenter.set(0, 0);
+    }
+
     raycaster.setFromCamera(screenCenter, camera);
     const hits = raycaster.intersectObjects(interactables);
     const prompt = document.getElementById('interaction-prompt');
